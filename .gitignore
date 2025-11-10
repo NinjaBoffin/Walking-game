@@ -1,0 +1,28 @@
+# OS Files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# LÖVE build files
+*.love
+
+# Logs
+*.log
+
+# Temporary files
+*~
+*.swp
+*.swo
+
+# IDE files
+.vscode/
+.idea/
+*.sublime-*
+
+# Windows
+ehthumbs.db
+
+# macOS
+.AppleDouble
+.LSOverride
+
