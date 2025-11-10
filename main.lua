@@ -17,12 +17,24 @@ local Button = require("src.ui.button")
 local game = {
     state = "playing",
     showHelp = false,
-    showCrafting = false,
+    showCraftMenu = false, -- Combined crafting & transforms modal
     showTravel = false,
-    craftingCategory = "consumables", -- "consumables" or "equipment"
-    selectedRecipe = 1,
+    showInventory = false,
+    craftMenuTab = "transforms", -- "transforms", "consumables", or "equipment"
     mouseX = 0,
-    mouseY = 0
+    mouseY = 0,
+    -- Craft/Transform progress tracking
+    craftingInProgress = false,
+    craftingName = "",
+    craftingTimer = 0,
+    craftingDuration = 10 -- 10 seconds for now
+}
+
+-- Path module lookup (needed by multiple functions)
+local pathModules = {
+    herbalism = Herbalism,
+    crystal = Crystal,
+    shores = Shores
 }
 
 -- UI Helper functions
@@ -105,15 +117,25 @@ function love.update(dt)
     game.mouseX, game.mouseY = love.mouse.getPosition()
     Button.updateHover(game.mouseX, game.mouseY)
     
-    -- Simulate step accumulation (for prototype)
-    if love.keyboard.isDown("space") then
-        StepSystem.updateSimulation(dt)
+    -- Update crafting timer
+    if game.craftingInProgress then
+        game.craftingTimer = game.craftingTimer + dt
+        if game.craftingTimer >= game.craftingDuration then
+            -- Crafting complete
+            game.craftingInProgress = false
+            game.craftingTimer = 0
+        end
     end
     
-    -- Simulate live steps when gathering (for prototype)
-    local actionInfo = ActionRunner.getCurrentAction()
-    if actionInfo and actionInfo.state == "gather_active" then
-        StepSystem.simulateLiveSteps(dt, 15) -- Faster rate for gathering simulation
+    -- Simulate step accumulation ONLY when SPACE is held (for prototype)
+    if love.keyboard.isDown("space") then
+        StepSystem.updateSimulation(dt)
+        
+        -- Simulate live steps when gathering (only when SPACE is held)
+        local actionInfo = ActionRunner.getCurrentAction()
+        if actionInfo.action and actionInfo.state == "gather_active" then
+            StepSystem.simulateLiveSteps(dt, 15) -- Faster rate for gathering simulation
+        end
     end
     
     -- Update action runner and handle completion
@@ -142,10 +164,16 @@ function love.draw()
     end
     
     -- Modals draw on top of any screen
-    if game.showHelp then
+    if game.craftingInProgress then
+        drawCraftingProgressModal()
+    elseif game.showHelp then
         drawHelpModal()
     elseif game.showTravel then
         drawTravelModal()
+    elseif game.showCraftMenu then
+        drawCraftMenuModal()
+    elseif game.showInventory then
+        drawInventoryModal()
     end
 end
 
@@ -155,37 +183,65 @@ function drawActivitySelectionScreen()
     local screenW = love.graphics.getWidth()
     local screenH = love.graphics.getHeight()
     
-    -- Header
-    drawBox(10, 10, screenW-20, 80, "Walking RPG")
+    -- Header with inventory
+    local headerHeight = 140
+    drawBox(10, 10, screenW-20, headerHeight, "Walking RPG")
     local y = 42
     local counts = StepSystem.getCounts()
     love.graphics.print(string.format("Banked Steps: %.0f", counts.bank), 20, y)
     y = y + 20
     local currentNode = World.getCurrentNode()
     love.graphics.print(string.format("Location: %s (%s)", currentNode.name, currentNode.region), 20, y)
+    y = y + 18
+    love.graphics.setColor(0.7, 0.7, 0.7)
+    love.graphics.print(currentNode.description, 20, y)
+    love.graphics.setColor(1, 1, 1)
+    
+    -- Inventory summary
+    y = y + 25
+    local capacity = Inventory.getCapacityInfo()
+    love.graphics.setColor(0.8, 1, 0.8)
+    love.graphics.print(string.format("Inventory: %d/%d slots", capacity.used, capacity.max), 20, y)
+    love.graphics.setColor(1, 1, 1)
+    
+    -- Show first few items
+    local items = Inventory.getAllItems()
+    local itemCount = 0
+    local itemText = ""
+    for itemName, quantity in pairs(items) do
+        if itemCount < 5 then
+            itemText = itemText .. itemName .. " x" .. quantity .. "  "
+            itemCount = itemCount + 1
+        end
+    end
+    if itemCount > 0 then
+        y = y + 18
+        love.graphics.setColor(0.7, 0.7, 0.7)
+        love.graphics.print(itemText, 30, y)
+        if capacity.used > 5 then
+            love.graphics.print("...", 30 + love.graphics.getFont():getWidth(itemText), y)
+        end
+        love.graphics.setColor(1, 1, 1)
+    end
     
     -- Activity selection area
-    y = 110
-    drawBox(10, y, screenW-20, screenH-y-10, "Select Activity")
+    y = headerHeight + 20
+    drawBox(10, y, screenW-20, screenH-y-60, "Select Activity")
     y = y + 35
     
     local activities = ActivityManager.getAvailableActivities(World)
-    local currentCategory = ""
     local buttonY = y
     local buttonX = 30
     local buttonWidth = screenW - 60
-    local buttonHeight = 50
+    local buttonHeight = 60
+    
+    -- Gathering activities
+    love.graphics.setColor(0.8, 0.9, 1)
+    love.graphics.print("GATHERING", buttonX, buttonY)
+    love.graphics.setColor(1, 1, 1)
+    buttonY = buttonY + 25
     
     for i, activity in ipairs(activities) do
-        -- Category header
-        if activity.category ~= currentCategory then
-            currentCategory = activity.category
-            love.graphics.setColor(0.8, 0.9, 1)
-            love.graphics.print(currentCategory, buttonX, buttonY)
-            love.graphics.setColor(1, 1, 1)
-            buttonY = buttonY + 25
-        end
-        
         -- Create button
         local btn = Button.create(
             activity.id,
@@ -195,11 +251,7 @@ function drawActivitySelectionScreen()
             buttonHeight,
             activity.data.name,
             function()
-                if activity.id == "travel" then
-                    game.showTravel = true
-                else
-                    ActivityManager.startConfiguration(activity.id)
-                end
+                ActivityManager.startConfiguration(activity.id)
             end
         )
         Button.register(btn)
@@ -208,16 +260,58 @@ function drawActivitySelectionScreen()
         -- Show step cost
         if activity.data.stepsPerItem then
             love.graphics.setColor(0.7, 0.7, 0.7)
-            love.graphics.print(string.format("%d steps per item", activity.data.stepsPerItem), buttonX + 10, buttonY + 30)
-            love.graphics.setColor(1, 1, 1)
-        elseif activity.data.stepCost then
-            love.graphics.setColor(0.7, 0.7, 0.7)
-            love.graphics.print(string.format("%d steps per action", activity.data.stepCost), buttonX + 10, buttonY + 30)
+            love.graphics.print(string.format("%d steps per item", activity.data.stepsPerItem), buttonX + 10, buttonY + 35)
             love.graphics.setColor(1, 1, 1)
         end
         
         buttonY = buttonY + buttonHeight + 10
     end
+    
+    -- Quick action buttons at bottom
+    buttonY = screenH - 130
+    local quickButtonWidth = (screenW - 60) / 3 - 10
+    
+    -- Craft/Transform button
+    local btnCraft = Button.create(
+        "craft",
+        buttonX,
+        buttonY,
+        quickButtonWidth,
+        50,
+        "Craft/Transform",
+        function() 
+            game.showCraftMenu = true
+            game.craftMenuTab = "transforms"
+        end
+    )
+    Button.register(btnCraft)
+    Button.draw(btnCraft)
+    
+    -- Inventory button
+    local btnInventory = Button.create(
+        "inventory",
+        buttonX + quickButtonWidth + 15,
+        buttonY,
+        quickButtonWidth,
+        50,
+        "Inventory",
+        function() game.showInventory = true end
+    )
+    Button.register(btnInventory)
+    Button.draw(btnInventory)
+    
+    -- Travel button
+    local btnTravel = Button.create(
+        "travel",
+        buttonX + (quickButtonWidth + 15) * 2,
+        buttonY,
+        quickButtonWidth,
+        50,
+        "Travel",
+        function() game.showTravel = true end
+    )
+    Button.register(btnTravel)
+    Button.draw(btnTravel)
     
     -- Instructions
     love.graphics.setColor(0.7, 0.7, 0.7)
@@ -377,7 +471,7 @@ function drawActiveActivityScreen()
     end
     
     -- Header
-    drawBox(10, 10, screenW-20, 100, "Active Activity")
+    drawBox(10, 10, screenW-20, 120, "Active Activity")
     local y = 42
     love.graphics.setColor(0.8, 1, 0.8)
     love.graphics.print(activity.name, 20, y)
@@ -386,9 +480,15 @@ function drawActiveActivityScreen()
     
     local counts = StepSystem.getCounts()
     love.graphics.print(string.format("Banked Steps: %.0f  |  Live Steps: %.0f", counts.bank, counts.live), 20, y)
+    y = y + 20
+    
+    -- Important instruction
+    love.graphics.setColor(1, 1, 0.8)
+    love.graphics.print("⚠ HOLD SPACEBAR to walk and accumulate steps!", 20, y)
+    love.graphics.setColor(1, 1, 1)
     
     -- Progress area
-    y = 130
+    y = 150
     drawBox(10, y, screenW-20, 250, "Progress")
     y = y + 40
     
@@ -432,9 +532,29 @@ function drawActiveActivityScreen()
         love.graphics.print(stepProgressText, screenW/2 - 15, y + 7)
     end
     
+    -- Inventory display
+    y = 420
+    drawBox(10, y, screenW-20, 100, "Inventory")
+    y = y + 35
+    
+    local items = Inventory.getAllItems()
+    local capacity = Inventory.getCapacityInfo()
+    love.graphics.print(string.format("Slots: %d/%d", capacity.used, capacity.max), 30, y)
+    y = y + 20
+    
+    local itemCount = 0
+    for itemName, quantity in pairs(items) do
+        if itemCount < 8 then
+            love.graphics.setColor(0.7, 0.7, 0.7)
+            love.graphics.print(string.format("%s x%d", itemName, quantity), 30 + (itemCount % 4) * 200, y + math.floor(itemCount / 4) * 18)
+            love.graphics.setColor(1, 1, 1)
+            itemCount = itemCount + 1
+        end
+    end
+    
     -- Current action status
-    y = 400
-    drawBox(10, y, screenW-20, 100, "Current Action")
+    y = 540
+    drawBox(10, y, screenW-20, 80, "Current Action")
     y = y + 35
     
     local actionInfo = ActionRunner.getCurrentAction()
@@ -706,98 +826,591 @@ function drawHelpModal()
     love.graphics.setColor(1, 1, 1)
 end
 
--- Draw travel modal
+-- Draw travel modal with visual node-based map
 function drawTravelModal()
+    Button.clear()
     local modalW = 700
-    local modalH = 500
+    local modalH = 550
     local modalX = (love.graphics.getWidth() - modalW) / 2
     local modalY = (love.graphics.getHeight() - modalH) / 2
     
     drawModal(modalX, modalY, modalW, modalH, "Travel Map")
     
+    -- Map area
+    local mapX = modalX + 20
+    local mapY = modalY + 50
+    local mapW = modalW - 40
+    local mapH = 450
+    
+    -- Draw map background
+    love.graphics.setColor(0.15, 0.15, 0.2)
+    love.graphics.rectangle("fill", mapX, mapY, mapW, mapH)
+    love.graphics.setColor(0.3, 0.3, 0.4)
+    love.graphics.rectangle("line", mapX, mapY, mapW, mapH)
+    
+    local currentNodeId = World.currentLocation
+    local counts = StepSystem.getCounts()
+    
+    -- First pass: Draw connection lines
+    for nodeId, node in pairs(World.NODES) do
+        if node.mapPos and node.connections then
+            local x1 = mapX + node.mapPos.x
+            local y1 = mapY + node.mapPos.y
+            
+            for _, conn in ipairs(node.connections) do
+                local targetNode = World.NODES[conn.to]
+                if targetNode and targetNode.mapPos then
+                    local x2 = mapX + targetNode.mapPos.x
+                    local y2 = mapY + targetNode.mapPos.y
+                    
+                    -- Draw connection line
+                    love.graphics.setColor(0.3, 0.3, 0.4)
+                    love.graphics.setLineWidth(2)
+                    love.graphics.line(x1, y1, x2, y2)
+                    
+                    -- Draw cost label at midpoint
+                    local midX = (x1 + x2) / 2
+                    local midY = (y1 + y2) / 2
+                    love.graphics.setColor(0.6, 0.6, 0.7)
+                    love.graphics.print(tostring(conn.cost), midX - 15, midY - 8)
+                end
+            end
+        end
+    end
+    
+    -- Second pass: Draw nodes
+    for nodeId, node in pairs(World.NODES) do
+        if node.mapPos then
+            local nodeX = mapX + node.mapPos.x
+            local nodeY = mapY + node.mapPos.y
+            local nodeRadius = 25
+            local isCurrent = (nodeId == currentNodeId)
+            local isConnected = false
+            
+            -- Check if this node is connected to current location
+            local currentNode = World.NODES[currentNodeId]
+            if currentNode and currentNode.connections then
+                for _, conn in ipairs(currentNode.connections) do
+                    if conn.to == nodeId then
+                        isConnected = true
+                        break
+                    end
+                end
+            end
+            
+            -- Node circle
+            if isCurrent then
+                -- Current location - bright green
+                love.graphics.setColor(0.3, 0.8, 0.3)
+                love.graphics.circle("fill", nodeX, nodeY, nodeRadius + 3)
+                love.graphics.setColor(0.5, 1, 0.5)
+                love.graphics.circle("fill", nodeX, nodeY, nodeRadius)
+            elseif isConnected then
+                -- Can travel here - check if affordable
+                local cost = 0
+                for _, conn in ipairs(currentNode.connections) do
+                    if conn.to == nodeId then
+                        cost = conn.cost
+                        break
+                    end
+                end
+                
+                local canAfford = counts.bank >= cost
+                if canAfford then
+                    love.graphics.setColor(0.4, 0.6, 0.8)
+                else
+                    love.graphics.setColor(0.6, 0.3, 0.3)
+                end
+                love.graphics.circle("fill", nodeX, nodeY, nodeRadius)
+                
+                -- Make it clickable
+                local btn = Button.create(
+                    "travel_" .. nodeId,
+                    nodeX - nodeRadius,
+                    nodeY - nodeRadius,
+                    nodeRadius * 2,
+                    nodeRadius * 2,
+                    "",
+                    function()
+                        if canAfford then
+                            World.travel(nodeId, StepSystem)
+                            game.showTravel = false
+                        else
+                            print(string.format("Need %d steps, have %.0f", cost, counts.bank))
+                        end
+                    end
+                )
+                Button.register(btn)
+            else
+                -- Not connected - gray
+                love.graphics.setColor(0.3, 0.3, 0.3)
+                love.graphics.circle("fill", nodeX, nodeY, nodeRadius)
+            end
+            
+            -- Node border
+            love.graphics.setColor(0.8, 0.8, 0.8)
+            love.graphics.setLineWidth(2)
+            love.graphics.circle("line", nodeX, nodeY, nodeRadius)
+            
+            -- Node name
+            love.graphics.setColor(1, 1, 1)
+            local nameWidth = love.graphics.getFont():getWidth(node.name)
+            love.graphics.print(node.name, nodeX - nameWidth/2, nodeY + nodeRadius + 5)
+            
+            -- Gather paths icons
+            if #node.gatherPaths > 0 then
+                love.graphics.setColor(0.7, 0.9, 1)
+                local pathText = table.concat(node.gatherPaths, ","):sub(1, 1):upper()
+                love.graphics.print(pathText, nodeX - 3, nodeY - 6)
+            end
+        end
+    end
+    
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.setLineWidth(1)
+    
+    -- Instructions at bottom
+    local y = modalY + modalH - 25
+    love.graphics.setColor(0.7, 0.7, 0.7)
+    love.graphics.print("Click a connected node to travel  |  Esc - Close", modalX + 20, y)
+    love.graphics.setColor(1, 1, 1)
+end
+
+-- Draw inventory modal
+-- Draw crafting progress modal
+function drawCraftingProgressModal()
+    local modalW = 500
+    local modalH = 250
+    local modalX = (love.graphics.getWidth() - modalW) / 2
+    local modalY = (love.graphics.getHeight() - modalH) / 2
+    
+    drawModal(modalX, modalY, modalW, modalH, "Crafting in Progress")
+    
+    local y = modalY + 50
+    local x = modalX + 20
+    
+    -- Crafting item name
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.printf(game.craftingName, x, y, modalW - 40, "center")
+    y = y + 40
+    
+    -- Progress bar
+    local progress = game.craftingTimer / game.craftingDuration
+    local barWidth = modalW - 80
+    local barHeight = 30
+    local barX = modalX + 40
+    
+    -- Background
+    love.graphics.setColor(0.2, 0.2, 0.2)
+    love.graphics.rectangle("fill", barX, y, barWidth, barHeight)
+    
+    -- Progress fill
+    love.graphics.setColor(0.4, 0.7, 0.4)
+    love.graphics.rectangle("fill", barX, y, barWidth * progress, barHeight)
+    
+    -- Border
+    love.graphics.setColor(0.5, 0.7, 0.9)
+    love.graphics.rectangle("line", barX, y, barWidth, barHeight)
+    
+    y = y + 50
+    
+    -- Timer text
+    love.graphics.setColor(0.8, 0.9, 1)
+    local timeRemaining = math.max(0, game.craftingDuration - game.craftingTimer)
+    love.graphics.printf(
+        string.format("Time remaining: %.1fs", timeRemaining),
+        x,
+        y,
+        modalW - 40,
+        "center"
+    )
+    
+    y = y + 30
+    
+    -- Instruction
+    love.graphics.setColor(0.7, 0.7, 0.7)
+    love.graphics.printf(
+        "Set it and forget it! Come back when it's done.",
+        x,
+        y,
+        modalW - 40,
+        "center"
+    )
+    
+    love.graphics.setColor(1, 1, 1)
+end
+
+function drawInventoryModal()
+    local modalW = 700
+    local modalH = 550
+    local modalX = (love.graphics.getWidth() - modalW) / 2
+    local modalY = (love.graphics.getHeight() - modalH) / 2
+    
+    drawModal(modalX, modalY, modalW, modalH, "Inventory")
+    
     local y = modalY + 45
     local x = modalX + 15
     
-    -- Current location
-    local currentNode = World.getCurrentNode()
-    love.graphics.setColor(0.8, 1, 0.8)
-    love.graphics.print("Current Location:", x, y)
-    love.graphics.setColor(1, 1, 1)
-    y = y + 22
-    love.graphics.print(string.format("%s (%s)", currentNode.name, currentNode.region), x+15, y)
-    y = y + 18
-    love.graphics.setColor(0.7, 0.7, 0.7)
-    love.graphics.print(currentNode.description, x+15, y)
-    love.graphics.setColor(1, 1, 1)
-    y = y + 18
-    
-    -- Available paths at current location
-    local availablePaths = World.getAvailableGatherPaths()
+    local capacity = Inventory.getCapacityInfo()
     love.graphics.setColor(0.8, 0.9, 1)
-    love.graphics.print("Available: " .. table.concat(availablePaths, ", "), x+15, y)
+    love.graphics.print(string.format("Slots Used: %d / %d", capacity.used, capacity.max), x, y)
     love.graphics.setColor(1, 1, 1)
     y = y + 35
     
-    -- Connections
-    love.graphics.setColor(1, 0.9, 0.7)
-    love.graphics.print("Travel Destinations:", x, y)
-    love.graphics.setColor(1, 1, 1)
-    y = y + 25
+    local items = Inventory.getAllItems()
+    local itemCount = 0
     
-    local connections = World.getConnections()
-    local keyIndex = 1
-    
-    if #connections == 0 then
+    if capacity.used == 0 then
         love.graphics.setColor(0.6, 0.6, 0.6)
-        love.graphics.print("No destinations available", x+15, y)
+        love.graphics.print("Your inventory is empty. Start gathering to collect items!", x, y)
         love.graphics.setColor(1, 1, 1)
     else
-        for _, conn in ipairs(connections) do
-            local node = conn.node
-            local cost = conn.cost
-            
-            -- Destination box
+        for itemName, quantity in pairs(items) do
+            -- Item box
             local boxY = y
-            local boxH = 70
+            local boxH = 50
+            local col = itemCount % 2
+            local row = math.floor(itemCount / 2)
+            local boxX = x + col * 330
+            boxY = y + row * 60
+            
             love.graphics.setColor(0.25, 0.25, 0.25)
-            love.graphics.rectangle("fill", x, boxY, modalW-30, boxH)
+            love.graphics.rectangle("fill", boxX, boxY, 320, boxH)
             love.graphics.setColor(0.4, 0.4, 0.4)
-            love.graphics.rectangle("line", x, boxY, modalW-30, boxH)
+            love.graphics.rectangle("line", boxX, boxY, 320, boxH)
             
-            -- Key and name
+            -- Item name and quantity
+            love.graphics.setColor(1, 1, 1)
+            love.graphics.print(itemName, boxX+10, boxY+10)
             love.graphics.setColor(0.8, 1, 0.8)
-            love.graphics.print(string.format("[%d]", keyIndex), x+5, boxY+5)
-            love.graphics.setColor(1, 1, 1)
-            love.graphics.print(node.name, x+30, boxY+5)
-            love.graphics.setColor(0.7, 0.7, 0.7)
-            love.graphics.print(string.format("(%s)", node.region), x+200, boxY+5)
-            
-            -- Cost
-            local counts = StepSystem.getCounts()
-            local canAfford = counts.bank >= cost
-            love.graphics.setColor(canAfford and 0.7 or 1, canAfford and 1 or 0.5, canAfford and 0.7 or 0.5)
-            love.graphics.print(string.format("Cost: %d steps", cost), x+400, boxY+5)
+            love.graphics.print(string.format("x%d", quantity), boxX+10, boxY+28)
             love.graphics.setColor(1, 1, 1)
             
-            -- Description
-            love.graphics.setColor(0.8, 0.9, 1)
-            love.graphics.print(node.description, x+10, boxY+25)
-            love.graphics.setColor(1, 1, 1)
-            
-            -- Available paths
-            love.graphics.setColor(0.7, 0.7, 0.7)
-            love.graphics.print("Paths: " .. table.concat(node.gatherPaths, ", "), x+10, boxY+45)
-            love.graphics.setColor(1, 1, 1)
-            
-            y = y + boxH + 10
-            keyIndex = keyIndex + 1
+            itemCount = itemCount + 1
         end
     end
     
     -- Instructions at bottom
     y = modalY + modalH - 30
     love.graphics.setColor(0.7, 0.7, 0.7)
-    love.graphics.print("1-9 - Travel to Destination  |  T/Esc - Close", x, y)
+    love.graphics.print("Esc - Close", x, y)
+    love.graphics.setColor(1, 1, 1)
+end
+
+-- Draw combined craft menu modal (transforms + crafting)
+function drawCraftMenuModal()
+    local modalW = 700
+    local modalH = 550
+    local modalX = (love.graphics.getWidth() - modalW) / 2
+    local modalY = (love.graphics.getHeight() - modalH) / 2
+    
+    local tabName = game.craftMenuTab == "transforms" and "TRANSFORMS" or 
+                    game.craftMenuTab == "consumables" and "CONSUMABLES" or "EQUIPMENT"
+    drawModal(modalX, modalY, modalW, modalH, "Craft Menu - " .. tabName)
+    
+    local y = modalY + 45
+    local x = modalX + 15
+    
+    -- Tab buttons (clickable)
+    local tabWidth = 200
+    local tabHeight = 30
+    local tabX = modalX + (modalW - tabWidth * 3) / 2
+    
+    -- Transforms tab button
+    local btnTransforms = Button.create(
+        "tab_transforms",
+        tabX,
+        y,
+        tabWidth,
+        tabHeight,
+        "Transforms",
+        function() game.craftMenuTab = "transforms" end
+    )
+    btnTransforms.isActive = (game.craftMenuTab == "transforms")
+    Button.register(btnTransforms)
+    Button.draw(btnTransforms)
+    
+    -- Consumables tab button
+    local btnConsumables = Button.create(
+        "tab_consumables",
+        tabX + tabWidth,
+        y,
+        tabWidth,
+        tabHeight,
+        "Consumables",
+        function() game.craftMenuTab = "consumables" end
+    )
+    btnConsumables.isActive = (game.craftMenuTab == "consumables")
+    Button.register(btnConsumables)
+    Button.draw(btnConsumables)
+    
+    -- Equipment tab button
+    local btnEquipment = Button.create(
+        "tab_equipment",
+        tabX + tabWidth * 2,
+        y,
+        tabWidth,
+        tabHeight,
+        "Equipment",
+        function() game.craftMenuTab = "equipment" end
+    )
+    btnEquipment.isActive = (game.craftMenuTab == "equipment")
+    Button.register(btnEquipment)
+    Button.draw(btnEquipment)
+    
+    y = y + 50
+    
+    -- Content based on selected tab
+    if game.craftMenuTab == "transforms" then
+        drawTransformsContent(x, y, modalW)
+    elseif game.craftMenuTab == "consumables" then
+        drawCraftingContent(x, y, modalW, "consumables")
+    else
+        drawCraftingContent(x, y, modalW, "equipment")
+    end
+    
+    -- Instructions at bottom
+    y = modalY + modalH - 30
+    love.graphics.setColor(0.7, 0.7, 0.7)
+    love.graphics.print("Click tabs to switch  |  Click recipes to craft/transform  |  C/Esc - Close", x, y)
+    love.graphics.setColor(1, 1, 1)
+end
+
+-- Draw transforms content
+function drawTransformsContent(x, y, modalW)
+    love.graphics.setColor(0.8, 0.9, 1)
+    love.graphics.print("Click a transform to perform instantly (uses banked steps)", x, y)
+    love.graphics.setColor(1, 1, 1)
+    y = y + 35
+    
+    local transforms = ActivityManager.getTransformActivities()
+    
+    for i, transform in ipairs(transforms) do
+        local boxY = y
+        local boxH = 60
+        
+        -- Create clickable button for entire transform box
+        local btnTransform = Button.create(
+            "transform_" .. i,
+            x,
+            boxY,
+            modalW - 30,
+            boxH,
+            "", -- No text, we'll draw custom content
+            function() startTransformFromModal(i) end
+        )
+        Button.register(btnTransform)
+        
+        -- Custom drawing for transform box
+        if btnTransform.hovered then
+            love.graphics.setColor(0.3, 0.3, 0.35)
+        else
+            love.graphics.setColor(0.25, 0.25, 0.25)
+        end
+        love.graphics.rectangle("fill", x, boxY, modalW-30, boxH)
+        love.graphics.setColor(0.4, 0.4, 0.4)
+        love.graphics.rectangle("line", x, boxY, modalW-30, boxH)
+        
+        -- Transform name
+        love.graphics.setColor(1, 1, 1)
+        love.graphics.print(transform.data.name, x+10, boxY+5)
+        love.graphics.setColor(0.7, 0.7, 0.7)
+        love.graphics.print(string.format("(%d steps)", transform.data.stepCost), x+200, boxY+5)
+        
+        -- Transform details
+        love.graphics.setColor(0.8, 0.9, 1)
+        local detailText = ""
+        if transform.id == "transform_dry" then
+            detailText = "2 herb → 1 dried_herb"
+        elseif transform.id == "transform_press_herb" then
+            detailText = "3 herb → 1 pressed_flower"
+        elseif transform.id == "transform_polish" then
+            detailText = "2 crystal_shard → 1 polished_crystal"
+        elseif transform.id == "transform_tumble" then
+            detailText = "3 crystal_shard → 1 tumbled_stone"
+        elseif transform.id == "transform_salt" then
+            detailText = "2 shell → 1 sea_salt"
+        elseif transform.id == "transform_press_kelp" then
+            detailText = "3 shell → 1 kelp_flakes"
+        end
+        love.graphics.print(detailText, x+10, boxY+30)
+        love.graphics.setColor(1, 1, 1)
+        
+        y = y + boxH + 10
+    end
+end
+
+-- Draw crafting content
+function drawCraftingContent(x, y, modalW, category)
+    love.graphics.setColor(0.8, 0.9, 1)
+    love.graphics.print("Click a recipe to craft (uses banked steps + materials)", x, y)
+    love.graphics.setColor(1, 1, 1)
+    y = y + 35
+    
+    -- Get ordered list of recipes
+    local orderedRecipes = getOrderedRecipes(category)
+    
+    for index, recipeData in ipairs(orderedRecipes) do
+        local recipe = recipeData.recipe
+        
+        -- Check if player has materials
+        local canCraft, missingItems = Crafting.canCraft(recipeData.id, Inventory)
+        
+        local boxY = y
+        local boxH = 80
+        
+        -- Create clickable button for entire recipe box
+        local btnRecipe = Button.create(
+            "recipe_" .. index,
+            x,
+            boxY,
+            modalW - 30,
+            boxH,
+            "", -- No text, we'll draw custom content
+            function() startCraftingFromModal(index) end
+        )
+        btnRecipe.enabled = canCraft
+        Button.register(btnRecipe)
+        
+        -- Custom drawing for recipe box
+        if not canCraft then
+            love.graphics.setColor(0.15, 0.15, 0.15)
+        elseif btnRecipe.hovered then
+            love.graphics.setColor(0.3, 0.35, 0.3)
+        else
+            love.graphics.setColor(0.25, 0.25, 0.25)
+        end
+        love.graphics.rectangle("fill", x, boxY, modalW-30, boxH)
+        love.graphics.setColor(0.4, 0.4, 0.4)
+        love.graphics.rectangle("line", x, boxY, modalW-30, boxH)
+        
+        -- Recipe name
+        if canCraft then
+            love.graphics.setColor(1, 1, 1)
+        else
+            love.graphics.setColor(0.6, 0.6, 0.6)
+        end
+        love.graphics.print(recipe.name, x+10, boxY+5)
+        
+        -- Availability status
+        if not canCraft then
+            love.graphics.setColor(1, 0.5, 0.5)
+            love.graphics.print("[LOCKED]", x+200, boxY+5)
+        else
+            love.graphics.setColor(0.7, 0.7, 0.7)
+            love.graphics.print(string.format("(%d steps)", recipe.stepCost), x+200, boxY+5)
+        end
+        
+        -- Materials (show what you have vs what you need)
+        for i, mat in ipairs(recipe.inputs) do
+            local hasQty = Inventory.getItemCount(mat.item)
+            if hasQty >= mat.quantity then
+                love.graphics.setColor(0.6, 1, 0.6) -- Green if you have enough
+            else
+                love.graphics.setColor(1, 0.6, 0.6) -- Red if not enough
+            end
+            love.graphics.print(string.format("%d/%d %s", hasQty, mat.quantity, mat.item), x+10 + (i-1)*200, boxY+30)
+        end
+        
+        -- Effect
+        love.graphics.setColor(0.7, 0.7, 0.7)
+        love.graphics.print(recipe.description, x+10, boxY+55)
+        love.graphics.setColor(1, 1, 1)
+        
+        y = y + boxH + 10
+        
+        if index >= 6 then break end -- Limit display
+    end
+end
+
+-- Get ordered list of recipes for a category
+function getOrderedRecipes(category)
+    local recipes = category == "consumables" and Crafting.CONSUMABLE_RECIPES or Crafting.EQUIPMENT_RECIPES
+    local ordered = {}
+    
+    -- Define order for consumables
+    if category == "consumables" then
+        local order = {"tea_herbalism", "potion_craft_queue", "snack_step_refund"}
+        for _, id in ipairs(order) do
+            if recipes[id] then
+                table.insert(ordered, {id = id, recipe = recipes[id]})
+            end
+        end
+    else
+        -- Define order for equipment
+        local order = {"pendant_craft_reduction", "bracelet_herbalism_bonus", "wrap_polish_reduction"}
+        for _, id in ipairs(order) do
+            if recipes[id] then
+                table.insert(ordered, {id = id, recipe = recipes[id]})
+            end
+        end
+    end
+    
+    return ordered
+end
+
+-- Old transforms modal (keeping for reference, will remove)
+function drawTransformsModal_OLD()
+    local modalW = 700
+    local modalH = 550
+    local modalX = (love.graphics.getWidth() - modalW) / 2
+    local modalY = (love.graphics.getHeight() - modalH) / 2
+    
+    drawModal(modalX, modalY, modalW, modalH, "Transforms")
+    
+    local y = modalY + 45
+    local x = modalX + 15
+    
+    love.graphics.setColor(0.8, 0.9, 1)
+    love.graphics.print("Select a transform to perform instantly (uses banked steps)", x, y)
+    love.graphics.setColor(1, 1, 1)
+    y = y + 35
+    
+    local transforms = ActivityManager.getTransformActivities()
+    
+    for i, transform in ipairs(transforms) do
+        -- Transform box
+        local boxY = y
+        local boxH = 60
+        love.graphics.setColor(0.25, 0.25, 0.25)
+        love.graphics.rectangle("fill", x, boxY, modalW-30, boxH)
+        love.graphics.setColor(0.4, 0.4, 0.4)
+        love.graphics.rectangle("line", x, boxY, modalW-30, boxH)
+        
+        -- Transform name and key
+        love.graphics.setColor(0.8, 1, 0.8)
+        love.graphics.print(string.format("[%d]", i), x+5, boxY+5)
+        love.graphics.setColor(1, 1, 1)
+        love.graphics.print(transform.data.name, x+30, boxY+5)
+        love.graphics.setColor(0.7, 0.7, 0.7)
+        love.graphics.print(string.format("(%d steps)", transform.data.stepCost), x+200, boxY+5)
+        
+        -- Transform details (would need to add to activity data)
+        love.graphics.setColor(0.8, 0.9, 1)
+        local detailText = ""
+        if transform.id == "transform_dry" then
+            detailText = "2 herb → 1 dried_herb"
+        elseif transform.id == "transform_press_herb" then
+            detailText = "3 herb → 1 pressed_flower"
+        elseif transform.id == "transform_polish" then
+            detailText = "2 crystal_shard → 1 polished_crystal"
+        elseif transform.id == "transform_tumble" then
+            detailText = "3 crystal_shard → 1 tumbled_stone"
+        elseif transform.id == "transform_salt" then
+            detailText = "2 shell → 1 sea_salt"
+        elseif transform.id == "transform_press_kelp" then
+            detailText = "3 shell → 1 kelp_flakes"
+        end
+        love.graphics.print(detailText, x+10, boxY+30)
+        love.graphics.setColor(1, 1, 1)
+        
+        y = y + boxH + 10
+    end
+    
+    -- Instructions at bottom
+    y = modalY + modalH - 30
+    love.graphics.setColor(0.7, 0.7, 0.7)
+    love.graphics.print("1-6 - Perform Transform  |  Esc - Close", x, y)
     love.graphics.setColor(1, 1, 1)
 end
 
@@ -904,6 +1517,29 @@ function love.keypressed(key)
         return
     end
     
+    if game.showCraftMenu then
+        if key == "tab" then
+            -- Cycle through tabs: transforms -> consumables -> equipment -> transforms
+            if game.craftMenuTab == "transforms" then
+                game.craftMenuTab = "consumables"
+            elseif game.craftMenuTab == "consumables" then
+                game.craftMenuTab = "equipment"
+            else
+                game.craftMenuTab = "transforms"
+            end
+        elseif key == "escape" or key == "c" then
+            game.showCraftMenu = false
+        end
+        return
+    end
+    
+    if game.showInventory then
+        if key == "escape" or key == "i" then
+            game.showInventory = false
+        end
+        return
+    end
+    
     -- Toggle help
     if key == "h" then
         game.showHelp = true
@@ -921,13 +1557,6 @@ function love.keypressed(key)
         resetGame()
     end
 end
-
--- Path module lookup
-local pathModules = {
-    herbalism = Herbalism,
-    crystal = Crystal,
-    shores = Shores
-}
 
 -- Start gathering from specified path
 function startGathering(pathName)
@@ -955,6 +1584,42 @@ function startGathering(pathName)
     if not success then
         print("Cannot start gathering: " .. (errorMsg or "Unknown error"))
     end
+end
+
+-- Start transform from modal (by index)
+function startTransformFromModal(index)
+    local transforms = ActivityManager.getTransformActivities()
+    if index < 1 or index > #transforms then
+        print("Invalid transform selection")
+        return
+    end
+    
+    local transform = transforms[index]
+    startTransform(transform.data.path, transform.data.transformType)
+    game.showCraftMenu = false
+end
+
+-- Start crafting from modal (by index)
+function startCraftingFromModal(index)
+    local category = game.craftMenuTab == "consumables" and "consumables" or "equipment"
+    local orderedRecipes = getOrderedRecipes(category)
+    
+    if index < 1 or index > #orderedRecipes then
+        print("Invalid recipe selection")
+        return
+    end
+    
+    local recipeData = orderedRecipes[index]
+    
+    -- Check if player has materials
+    local canCraft, missingItems = Crafting.canCraft(recipeData.id, Inventory)
+    if not canCraft then
+        print("Cannot craft " .. recipeData.recipe.name .. " - missing materials!")
+        return
+    end
+    
+    startCrafting(recipeData.id)
+    game.showCraftMenu = false
 end
 
 -- Start transform from specified path
@@ -986,9 +1651,17 @@ function startTransform(pathName, transformType)
         duration = 2.0 -- 2 seconds for prototype
     }
     
+    -- Start crafting progress modal
+    game.craftingInProgress = true
+    game.craftingName = "Transforming: " .. transform.name
+    game.craftingTimer = 0
+    
+    -- Schedule the actual transform to happen after the timer
+    -- For now, we'll do it immediately but show the progress
     local success, errorMsg = ActionRunner.startSpend(action, StepSystem)
     if not success then
         print("Cannot start transform: " .. errorMsg)
+        game.craftingInProgress = false
     end
 end
 
@@ -1016,28 +1689,9 @@ function startTravel(index)
 end
 
 -- Start crafting from menu
-function startCrafting(index)
+function startCrafting(recipeId)
     if not ActionRunner.isIdle() then
         print("Action already in progress!")
-        return
-    end
-    
-    -- Get recipes for current category
-    local recipes = game.craftingCategory == "consumables" and Crafting.CONSUMABLE_RECIPES or Crafting.EQUIPMENT_RECIPES
-    
-    -- Convert index to recipe ID
-    local recipeId = nil
-    local currentIndex = 1
-    for id, recipe in pairs(recipes) do
-        if currentIndex == index then
-            recipeId = id
-            break
-        end
-        currentIndex = currentIndex + 1
-    end
-    
-    if not recipeId then
-        print("Invalid recipe selection")
         return
     end
     
@@ -1055,12 +1709,16 @@ function startCrafting(index)
         return
     end
     
-    -- Close crafting menu and start action
-    game.showCrafting = false
+    -- Start crafting progress modal
+    game.craftingInProgress = true
+    game.craftingName = "Crafting: " .. action.name
+    game.craftingTimer = 0
     
+    -- Schedule the actual craft to happen after the timer
     local success, errorMsg = ActionRunner.startSpend(action, StepSystem)
     if not success then
         print("Cannot start crafting: " .. errorMsg)
+        game.craftingInProgress = false
     end
 end
 

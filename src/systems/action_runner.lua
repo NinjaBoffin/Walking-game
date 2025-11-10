@@ -83,7 +83,9 @@ function ActionRunner.update(dt, stepSystem)
         if availableSteps > 0 then
             local stepsToUse = math.min(availableSteps, ActionRunner.requiredSteps - ActionRunner.stepsAccumulated)
             ActionRunner.stepsAccumulated = ActionRunner.stepsAccumulated + stepsToUse
-            stepSystem.spend(stepsToUse, false) -- Only use live steps for gather
+            
+            -- Spend the live steps (don't use print statements in spend function)
+            stepSystem.liveSteps = stepSystem.liveSteps - stepsToUse
             
             ActionRunner.progress = ActionRunner.stepsAccumulated / ActionRunner.requiredSteps
         else

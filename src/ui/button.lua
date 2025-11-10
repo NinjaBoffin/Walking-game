@@ -69,6 +69,9 @@ end
 function Button.draw(button)
     if not button.enabled then
         love.graphics.setColor(0.2, 0.2, 0.2)
+    elseif button.isActive then
+        -- Active state (for tabs)
+        love.graphics.setColor(0.4, 0.6, 0.8)
     elseif button.hovered then
         love.graphics.setColor(0.4, 0.6, 0.8)
     else
@@ -77,9 +80,16 @@ function Button.draw(button)
     
     love.graphics.rectangle("fill", button.x, button.y, button.width, button.height)
     
-    -- Border
-    love.graphics.setColor(0.5, 0.7, 0.9)
+    -- Border (thicker for active tabs)
+    if button.isActive then
+        love.graphics.setLineWidth(3)
+        love.graphics.setColor(0.6, 0.8, 1)
+    else
+        love.graphics.setLineWidth(1)
+        love.graphics.setColor(0.5, 0.7, 0.9)
+    end
     love.graphics.rectangle("line", button.x, button.y, button.width, button.height)
+    love.graphics.setLineWidth(1)
     
     -- Text
     love.graphics.setColor(1, 1, 1)

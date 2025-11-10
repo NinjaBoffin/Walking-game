@@ -38,6 +38,14 @@ Building a minimal playable prototype, then iteratively expanding to full MVP sc
 **Platform**: Desktop LÖVE  
 **Status**: ✅ COMPLETED (November 9, 2025)
 
+---
+
+## Phase 2.5: Activity System & UI Refinement
+
+**Goal**: Mobile-first activity system with mouse-driven UI  
+**Platform**: Desktop LÖVE (preparing for mobile)  
+**Status**: ✅ COMPLETED (November 10, 2025)
+
 ### Tasks
 - [x] Implement consumables crafting system
   - [x] Tea crafting (reduces gather step costs)

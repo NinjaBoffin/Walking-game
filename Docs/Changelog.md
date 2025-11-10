@@ -2,7 +2,49 @@
 
 ## Phase 2.5: Activity System Refactor (IN PROGRESS)
 
-### v0.5.0 - Activity System & Mouse-Driven UI (Current)
+### v0.5.1 - UI Improvements & Bug Fixes (Current)
+**Date**: November 10, 2025
+
+**Added:**
+- **Inventory Modal** - Dedicated inventory screen
+  - Click "Inventory" button to view all items
+  - 2-column grid layout showing items and quantities
+  - Slot usage display (X/33)
+  - Empty state message
+- **Inventory Summary** - On activity selection screen
+  - Shows first 5 items with quantities
+  - Slot count display
+- **Resizable Window** - `conf.lua` added
+  - Default size: 900x700
+  - Minimum size: 800x600
+  - Fully resizable
+- **Transforms Modal** - Separate modal for transforms
+  - Shows all 6 transform recipes
+  - Recipe details (input → output, step cost)
+  - Press 1-6 to perform instantly
+
+**Changed:**
+- **Fixed auto-completion bug** - Steps only accumulate when SPACE is held
+- **10x faster testing** - Step accumulation multiplied by 10 for rapid testing
+- **Button layout**: `[Transforms] [Inventory] [Travel]` - 3 buttons instead of 2
+- **Activity selection** - Only shows gathering activities (transforms moved to modal)
+- **Clear instructions** - Yellow warning: "⚠ HOLD SPACEBAR to walk and accumulate steps!"
+- **Inventory display** - Shows on both selection and active screens
+
+**Fixed:**
+- Gathering no longer auto-completes - must hold SPACE to accumulate steps
+- `pathModules` moved to top of file to prevent nil errors
+- Step accumulation only happens when SPACE is actively held
+- ActionRunner now directly modifies live steps instead of using spend()
+
+**Technical:**
+- `conf.lua` - Window configuration
+- `drawInventoryModal()` - Full inventory display
+- `drawTransformsModal()` - Transform selection modal
+- Step simulation rate: 10 steps/sec → 100 steps/sec (10x)
+- Bank accumulation: 100 steps/sec → 1000 steps/sec (10x)
+
+### v0.5.0 - Activity System & Mouse-Driven UI
 **Date**: November 10, 2025
 
 **Added:**

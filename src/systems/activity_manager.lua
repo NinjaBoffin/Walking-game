@@ -122,25 +122,21 @@ function ActivityManager.getAvailableActivities(World)
         end
     end
     
-    -- Add all transform activities (always available)
+    return available
+end
+
+-- Get all transform activities
+function ActivityManager.getTransformActivities()
+    local transforms = {}
     for id, data in pairs(ActivityManager.ACTIVITY_TYPES) do
         if data.type == "transform" then
-            table.insert(available, {
+            table.insert(transforms, {
                 id = id,
-                data = data,
-                category = "Transforms"
+                data = data
             })
         end
     end
-    
-    -- Add travel option
-    table.insert(available, {
-        id = "travel",
-        data = {name = "Travel to Another Area", type = "travel"},
-        category = "Travel"
-    })
-    
-    return available
+    return transforms
 end
 
 -- Start configuring an activity

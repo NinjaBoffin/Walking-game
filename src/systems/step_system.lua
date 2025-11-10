@@ -61,18 +61,22 @@ function StepSystem.getCounts()
 end
 
 -- Simulate step accumulation (for prototype)
+-- 10x faster for testing
 function StepSystem.updateSimulation(dt)
     if StepSystem.isSimulating then
         -- For prototype: simulate both bank accumulation and live steps
         -- In real game, live steps come from sensors during active gathering
-        StepSystem.addToBank(StepSystem.config.simulationRate * dt)
+        -- 10x multiplier for faster testing
+        StepSystem.bank = StepSystem.bank + (StepSystem.config.simulationRate * dt * 10)
     end
 end
 
 -- Simulate live steps (for prototype testing - simulates walking during gather)
+-- 10x faster for testing
 function StepSystem.simulateLiveSteps(dt, rate)
     rate = rate or StepSystem.config.simulationRate
-    StepSystem.addLiveSteps(rate * dt)
+    -- 10x multiplier for faster testing
+    StepSystem.liveSteps = StepSystem.liveSteps + (rate * dt * 10)
 end
 
 -- Reset system

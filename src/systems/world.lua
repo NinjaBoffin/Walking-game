@@ -17,14 +17,15 @@ World.NODES = {
     start = {
         id = "start",
         name = "Starting Meadow",
-        type = World.NODE_TYPES.MIXED,
+        type = World.NODE_TYPES.HERB_PATCH,
         region = "Start",
         description = "A peaceful meadow where your journey begins",
-        gatherPaths = {"herbalism"}, -- Available gathering paths at this node
+        gatherPaths = {"herbalism"}, -- Only herbalism available at start
         connections = {
             {to = "meadow", cost = 600},
             {to = "ridge", cost = 1800}
-        }
+        },
+        mapPos = {x = 350, y = 250} -- Center of map
     },
     
     meadow = {
@@ -37,7 +38,8 @@ World.NODES = {
         connections = {
             {to = "start", cost = 600},
             {to = "forest", cost = 900}
-        }
+        },
+        mapPos = {x = 200, y = 150} -- Upper left
     },
     
     forest = {
@@ -46,11 +48,12 @@ World.NODES = {
         type = World.NODE_TYPES.MIXED,
         region = "Start",
         description = "Dense woods with herbs and crystal formations",
-        gatherPaths = {"herbalism", "crystal"},
+        gatherPaths = {"herbalism"},
         connections = {
             {to = "meadow", cost = 900},
             {to = "beach", cost = 1200}
-        }
+        },
+        mapPos = {x = 150, y = 300} -- Left
     },
     
     beach = {
@@ -63,7 +66,8 @@ World.NODES = {
         connections = {
             {to = "forest", cost = 1200},
             {to = "far_coast", cost = 800}
-        }
+        },
+        mapPos = {x = 500, y = 150} -- Upper right
     },
     
     ridge = {
@@ -76,7 +80,8 @@ World.NODES = {
         connections = {
             {to = "start", cost = 1800},
             {to = "cavern", cost = 1000}
-        }
+        },
+        mapPos = {x = 350, y = 80} -- Top center
     },
     
     cavern = {
@@ -89,7 +94,8 @@ World.NODES = {
         connections = {
             {to = "ridge", cost = 1000},
             {to = "far_coast", cost = 2200}
-        }
+        },
+        mapPos = {x = 250, y = 400} -- Bottom left
     },
     
     far_coast = {
@@ -102,7 +108,8 @@ World.NODES = {
         connections = {
             {to = "cavern", cost = 2200},
             {to = "beach", cost = 800}
-        }
+        },
+        mapPos = {x = 550, y = 350} -- Right
     }
 }
 
