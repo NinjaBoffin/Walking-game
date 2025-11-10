@@ -42,7 +42,7 @@ Building a minimal playable prototype, then iteratively expanding to full MVP sc
 
 ## Phase 2.5: Activity System & UI Refinement
 
-**Goal**: Mobile-first activity system with mouse-driven UI  
+**Goal**: Mobile-first activity system with click-based UI and crafting timers  
 **Platform**: Desktop LÖVE (preparing for mobile)  
 **Status**: ✅ COMPLETED (November 10, 2025)
 
@@ -75,6 +75,34 @@ Building a minimal playable prototype, then iteratively expanding to full MVP sc
   - [x] Steps spent tracking
   - [x] Milestone definitions (foundation for unlocks)
   - [x] Stats display in Help modal
+- [x] Activity system implementation
+  - [x] Activity selection screen (location-based)
+  - [x] Quantity targeting for activities
+  - [x] Progress tracking with auto-chaining
+  - [x] Activity cancellation with step refund
+  - [x] Mouse-driven button interface
+- [x] Full click-based interface
+  - [x] Clickable activity buttons
+  - [x] Clickable recipe boxes (transforms/crafts)
+  - [x] Clickable tabs for craft menu
+  - [x] Hover effects on all interactive elements
+  - [x] Removed keyboard shortcuts (except essentials)
+- [x] Crafting progress system
+  - [x] 10-second timer for crafts/transforms
+  - [x] Progress modal with countdown
+  - [x] "Set it and forget it" design
+  - [x] Visual progress bar
+- [x] Combined craft menu
+  - [x] Three tabs: Transforms | Consumables | Equipment
+  - [x] All recipes always visible
+  - [x] Material requirement display (X/Y format)
+  - [x] Locked/unlocked recipe states
+  - [x] Color-coded material availability
+- [x] Visual travel map
+  - [x] Node-based graphical map
+  - [x] Connection lines with step costs
+  - [x] Color-coded nodes (current/connected/locked)
+  - [x] Clickable nodes for travel
 
 ### Deliverables
 - [x] Crafting module (`src/systems/crafting.lua`)
@@ -82,7 +110,11 @@ Building a minimal playable prototype, then iteratively expanding to full MVP sc
 - [x] Modal UI system with overlays
 - [x] World graph module (`src/systems/world.lua`)
 - [x] Progression tracker (`src/systems/progression.lua`)
+- [x] Activity manager (`src/systems/activity_manager.lua`)
+- [x] Button UI component (`src/ui/button.lua`)
 - [x] Recipe data files for consumables/equipment
+- [x] Crafting progress modal with timer system
+- [x] Full mouse-driven interface
 
 ---
 

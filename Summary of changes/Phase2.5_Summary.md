@@ -1,11 +1,11 @@
-# Phase 2.5: Activity System Refactor - Summary
+# Phase 2.5: Activity System & UI Refinement - Summary
 
 **Status**: ✅ COMPLETED  
 **Date**: November 10, 2025
 
 ## Overview
 
-Phase 2.5 transformed the prototype from a keyboard-driven desktop game into a mobile-first experience with activity-based gameplay. This refactor aligns the prototype with the core loop described in the GDD: select an activity, set a target, walk to complete it.
+Phase 2.5 transformed the prototype from a keyboard-driven desktop game into a mobile-first experience with activity-based gameplay, full click interface, and crafting timers. This refactor aligns the prototype with the core loop described in the GDD: select an activity, set a target, walk to complete it. The addition of crafting timers creates a "set it and forget it" experience designed for overnight/background crafting.
 
 ## Key Changes
 
@@ -68,12 +68,66 @@ Phase 2.5 transformed the prototype from a keyboard-driven desktop game into a m
 ### 3. Location-Based Restrictions
 
 Activities now respect location constraints:
-- **Starting Meadow**: All 3 paths available
+- **Starting Meadow**: Herbalism only (must travel to access other paths)
 - **Wildflower Meadow / Ancient Forest**: Herbalism only
 - **Crystal Ridge / Glimmering Cavern**: Crystal only
 - **Sandy Beach / Far Coast**: Shores only
 
 Transforms are always available regardless of location (use banked steps, not location-dependent).
+
+### 4. Crafting Progress System
+
+**"Set It and Forget It" Design**:
+- All crafts and transforms now have a 10-second timer
+- Progress modal shows countdown and progress bar
+- Designed for overnight/background crafting
+- Players can start a craft before bed and check results in the morning
+
+**Visual Feedback**:
+- Progress bar with smooth animation
+- Time remaining display (e.g., "8.3s")
+- Item name prominently displayed
+- Encouraging message: "Set it and forget it! Come back when it's done."
+
+### 5. Full Click-Based Interface
+
+**Combined Craft Menu**:
+- Single "Craft/Transform" button opens unified menu
+- Three clickable tabs: Transforms | Consumables | Equipment
+- Active tab highlighted with thicker border
+- Tab key or click to switch categories
+
+**All Recipes Always Visible**:
+- 6 Transform recipes (Dry, Press Herb, Polish, Tumble, Salt, Press Kelp)
+- 3 Consumable recipes (Herbal Tea, Crafting Potion, Kelp Snack)
+- 3 Equipment recipes (Flower Pendant, Herb Bracelet, Crystal Wrap)
+
+**Material Tracking**:
+- Shows "X/Y item_name" format for each material
+- Green text: You have enough materials
+- Red text: Need more materials
+- [LOCKED] tag on unavailable recipes
+- Locked recipes are dimmed and not clickable
+
+**Click Interactions**:
+- Click any recipe box to craft/transform
+- Hover effects on all clickable elements
+- Disabled recipes show visual feedback but don't respond to clicks
+- No number keys needed for recipe selection
+
+### 6. Visual Travel Map
+
+**Node-Based Graphical Map**:
+- Spatial representation of world nodes
+- Connection lines show relationships and step costs
+- Clickable nodes for instant travel
+
+**Color Coding**:
+- Yellow: Current location
+- Green: Connected and affordable
+- Blue: Connected but too expensive
+- Gray: Not connected
+- Shows initial letter of available gather paths (H/C/S)
 
 ## Technical Implementation
 

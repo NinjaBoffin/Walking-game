@@ -2,7 +2,64 @@
 
 ## Phase 2.5: Activity System Refactor (IN PROGRESS)
 
-### v0.5.1 - UI Improvements & Bug Fixes (Current)
+### v0.5.2 - Crafting Progress & Full Click Interface (Current)
+**Date**: November 10, 2025
+
+**Added:**
+- **Crafting Progress Modal** - "Set it and forget it" experience
+  - 10-second timer for all crafts/transforms
+  - Progress bar with visual feedback
+  - Time remaining display
+  - Modal shows crafting item name
+  - Designed for overnight/background crafting
+- **Combined Craft Menu** - Single modal for all crafting
+  - Three clickable tabs: Transforms | Consumables | Equipment
+  - Tab key or click to switch categories
+  - Active tab has thicker border
+- **All Recipes Visible** - See what you can craft
+  - 6 Transform recipes always shown
+  - 3 Consumable recipes always shown
+  - 3 Equipment recipes always shown
+  - Locked recipes show material requirements
+- **Material Tracking** - Clear visual feedback
+  - Green text: You have enough materials
+  - Red text: Need more materials
+  - Shows "X/Y item_name" format
+  - [LOCKED] tag on unavailable recipes
+- **Full Click Interface** - Mouse-first design
+  - Click any recipe box to craft/transform
+  - Hover effects on all clickable items
+  - Disabled recipes are not clickable
+  - No number keys needed for recipes
+
+**Changed:**
+- **Location-based gathering** - Starting Meadow now only shows Herbalism
+  - Must travel to access other gathering paths
+  - Crystal Ridge for crystals, Sandy Beach for shells
+- **Keyboard shortcuts removed** - Only essential keys remain
+  - SPACE: Simulate walking
+  - H: Help
+  - X: Reset
+  - C/Esc: Close modals
+  - Tab: Cycle craft menu tabs
+- **Recipe selection** - Click-only (no 1-9 keys)
+- **Craft menu button** - Renamed to "Craft/Transform"
+
+**Fixed:**
+- Recipe IDs corrected (tea_herbalism, potion_craft_queue, etc.)
+- Crafting now uses `recipe.inputs` instead of `recipe.materials`
+- Recipe display uses `recipe.description` for effects
+- Tabs are now clickable buttons (not just visual)
+
+**Technical:**
+- `game.craftingInProgress` - Tracks active crafting
+- `game.craftingTimer` - 10-second countdown
+- `drawCraftingProgressModal()` - Progress display
+- `getOrderedRecipes()` - Consistent recipe ordering
+- Button.isActive - Tab highlighting support
+- Recipe buttons with enabled/disabled states
+
+### v0.5.1 - UI Improvements & Bug Fixes
 **Date**: November 10, 2025
 
 **Added:**
