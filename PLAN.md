@@ -158,39 +158,88 @@ Building a minimal playable prototype, then iteratively expanding to full MVP sc
 
 ## Phase 3: Mobile Integration
 
-**Goal**: Cross-platform mobile setup with real step counting  
-**Platform**: LÖVE with mobile bridges (iOS/Android)  
-**Status**: 🔄 Pending
+**Goal**: Get the game running on mobile devices with real step counting  
+**Platform**: LÖVE-Android/LÖVE-iOS with native pedometer access  
+**Status**: 🔄 IN PROGRESS
 
-### Tasks
-- [ ] Setup iOS HealthKit integration
-  - [ ] Native bridge for step counting
-  - [ ] Permission handling
-  - [ ] Background step accumulation
-- [ ] Setup Android Google Fit integration
-  - [ ] Native bridge for step counting
-  - [ ] Permission handling
-  - [ ] Background step accumulation
-- [ ] Implement GPS spoofing detection
-  - [ ] 60-120s validation windows
-  - [ ] Outdoor/Indoor/Vehicle/Spoof classification
-  - [ ] Credit rules (Outdoor+Indoor OK, Vehicle/Spoof blocked)
-  - [ ] Cooldown for repeated spoofing
-- [ ] Create touch-friendly mobile UI
-  - [ ] Touch controls for gathering/transforms
-  - [ ] Responsive layout for different screen sizes
-  - [ ] Mobile-optimized text sizes
-- [ ] Add local persistence
-  - [ ] Save/load game state
-  - [ ] SQLite integration
-  - [ ] Migration system
+### Phase 3.1: Mobile Build Setup (Week 1)
+- [ ] Setup LÖVE Android build environment
+  - [ ] Install Android Studio and SDK
+  - [ ] Clone/setup love-android repository
+  - [ ] Configure build.gradle for Walking RPG
+  - [ ] Test basic LÖVE app on Android device/emulator
+- [ ] Setup LÖVE iOS build environment (if Mac available)
+  - [ ] Install Xcode and iOS SDK
+  - [ ] Clone/setup love-ios repository
+  - [ ] Configure project for Walking RPG
+  - [ ] Test basic LÖVE app on iOS device/simulator
+- [ ] Mobile UI adjustments
+  - [ ] Scale text sizes for mobile (1.5-2x current size)
+  - [ ] Increase button sizes (minimum 48x48dp)
+  - [ ] Test touch targets on actual device
+
+### Phase 3.2: Pedometer Integration (Week 2)
+- [ ] Android pedometer bridge
+  - [ ] Create Java/Kotlin bridge for step sensor
+  - [ ] Implement step counter listener
+  - [ ] Create Lua FFI/JNI bindings
+  - [ ] Permission handling (ACTIVITY_RECOGNITION)
+  - [ ] Test step counting while app is open
+- [ ] iOS pedometer bridge (if Mac available)
+  - [ ] Create Objective-C/Swift bridge for CoreMotion
+  - [ ] Implement CMPedometer query
+  - [ ] Create Lua FFI bindings
+  - [ ] Permission handling (Motion & Fitness)
+  - [ ] Test step counting while app is open
+- [ ] Step system integration
+  - [ ] Connect native step counter to StepSystem
+  - [ ] Implement step delta calculation
+  - [ ] Add step sync interval (every 5 seconds)
+  - [ ] Add debug overlay showing real-time steps
+
+### Phase 3.3: Background & Persistence (Week 3)
+- [ ] Background step accumulation
+  - [ ] Implement last-known step count storage
+  - [ ] Calculate step delta on app resume
+  - [ ] Add to step bank when returning to app
+  - [ ] Test: Close app, walk, reopen app
+- [ ] Local save/load system
+  - [ ] Design save data structure (JSON)
+  - [ ] Implement save on app pause/close
+  - [ ] Implement load on app open
+  - [ ] Save: Inventory, Equipment, Location, Steps, Progression
+  - [ ] Auto-save every 30 seconds during active play
+
+### Phase 3.4: Polish & Testing (Week 4)
+- [ ] Mobile-specific features
+  - [ ] Notifications for activity completion (optional)
+  - [ ] Battery optimization settings
+  - [ ] Offline mode indicator
+- [ ] Testing & bug fixes
+  - [ ] Test on multiple Android devices
+  - [ ] Test on multiple iOS devices (if available)
+  - [ ] Test step accuracy vs. native step counter
+  - [ ] Test battery drain
+  - [ ] Test save/load reliability
 
 ### Deliverables
-- [ ] Native bridges (`bridges/ios/`, `bridges/android/`)
-- [ ] Step validation module (`src/systems/step_validation.lua`)
-- [ ] Mobile UI module (`src/ui/mobile.lua`)
+- [ ] Android APK build (`builds/android/WalkingRPG.apk`)
+- [ ] iOS IPA build (`builds/ios/WalkingRPG.ipa`) - if Mac available
+- [ ] Native step counter bridges (`mobile/android/`, `mobile/ios/`)
 - [ ] Persistence module (`src/systems/persistence.lua`)
-- [ ] Build scripts for iOS/Android
+- [ ] Mobile step integration (`src/systems/mobile_steps.lua`)
+- [ ] Build documentation (`Docs/Mobile_Build_Guide.md`)
+
+### Testing Strategy
+- **Desktop Emulator**: Continue using SPACE key simulation for rapid UI/UX testing
+- **Mobile Device**: Test actual step counting on real device during walks
+- **Hybrid**: Use desktop for development, mobile for step tracking validation
+
+### Notes
+- Android is primary target (easier to build and test)
+- iOS requires Mac + Apple Developer account ($99/year)
+- Will focus on Android first, iOS later if needed
+- GPS spoofing detection deferred to Phase 4
 
 ---
 
