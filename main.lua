@@ -57,7 +57,13 @@ function drawBox(x, y, width, height, title)
     love.graphics.setColor(1, 1, 1)
 end
 
+-- Store modal bounds for click detection
+local currentModalBounds = nil
+
 function drawModal(x, y, width, height, title)
+    -- Store bounds for click-outside detection
+    currentModalBounds = {x = x, y = y, width = width, height = height}
+    
     -- Draw semi-transparent overlay
     love.graphics.setColor(0, 0, 0, 0.7)
     love.graphics.rectangle("fill", 0, 0, love.graphics.getWidth(), love.graphics.getHeight())
@@ -74,7 +80,75 @@ function drawModal(x, y, width, height, title)
     love.graphics.setColor(1, 1, 1)
     love.graphics.print(title, x+10, y+8)
     
+    -- Draw X close button
+    local closeSize = 24
+    local closeX = x + width - closeSize - 4
+    local closeY = y + 3
+    
+    -- Check if mouse is over close button
+    local mx, my = game.mouseX, game.mouseY
+    local isHover = mx >= closeX and mx <= closeX + closeSize and 
+                    my >= closeY and my <= closeY + closeSize
+    
+    -- Draw close button background
+    if isHover then
+        love.graphics.setColor(0.8, 0.3, 0.3)
+    else
+        love.graphics.setColor(0.6, 0.2, 0.2)
+    end
+    love.graphics.rectangle("fill", closeX, closeY, closeSize, closeSize)
     love.graphics.setColor(1, 1, 1)
+    love.graphics.rectangle("line", closeX, closeY, closeSize, closeSize)
+    
+    -- Draw X
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.setLineWidth(2)
+    love.graphics.line(closeX + 6, closeY + 6, closeX + closeSize - 6, closeY + closeSize - 6)
+    love.graphics.line(closeX + closeSize - 6, closeY + 6, closeX + 6, closeY + closeSize - 6)
+    love.graphics.setLineWidth(1)
+    
+    -- Register close button
+    local btnClose = Button.create(
+        "modal_close_x",
+        closeX,
+        closeY,
+        closeSize,
+        closeSize,
+        "",
+        function() closeCurrentModal() end
+    )
+    Button.register(btnClose)
+    
+    love.graphics.setColor(1, 1, 1)
+end
+
+-- Helper function to close the currently open modal
+function closeCurrentModal()
+    if game.craftingInProgress then
+        -- Don't allow closing crafting progress modal
+        return
+    elseif game.showHelp then
+        game.showHelp = false
+    elseif game.showTravel then
+        game.showTravel = false
+    elseif game.showCraftMenu then
+        game.showCraftMenu = false
+    elseif game.showInventory then
+        game.showInventory = false
+    elseif game.showEquipment then
+        game.showEquipment = false
+    end
+end
+
+-- Check if click is outside modal bounds
+function isClickOutsideModal(x, y)
+    if not currentModalBounds then
+        return false
+    end
+    
+    local bounds = currentModalBounds
+    return x < bounds.x or x > bounds.x + bounds.width or
+           y < bounds.y or y > bounds.y + bounds.height
 end
 
 -- Game configuration
@@ -1851,6 +1925,17 @@ end
 -- Handle mouse clicks
 function love.mousepressed(x, y, button)
     if button == 1 then -- Left click
+        -- Check if any modal is open and click is outside modal bounds
+        local hasModal = game.showHelp or game.showTravel or game.showCraftMenu or 
+                         game.showInventory or game.showEquipment or game.craftingInProgress
+        
+        if hasModal and isClickOutsideModal(x, y) then
+            -- Clicked outside modal, close it
+            closeCurrentModal()
+            return
+        end
+        
+        -- Handle button clicks
         Button.handleClick(x, y)
     end
 end

@@ -45,14 +45,19 @@ A prototype of the Walking RPG game built with LÖVE framework, featuring a boxe
 
 ### Mouse-Driven Interface
 - **Click** - Select activities, input quantities, navigate UI
-- All interactions are now mouse-based for mobile-first design
+- **X Button** (top-right of modals) - Close any modal
+- **Click Outside Modal** - Close modal by clicking/tapping outside of it
+- All interactions are mobile-first: tap, no keyboard required
 
-### Keyboard Shortcuts (Testing)
+### Keyboard Shortcuts (Desktop Testing)
 - **SPACE** (hold) - Simulate step accumulation (for prototype testing)
 - **H** - Toggle Help/Recipes screen (includes progression stats)
 - **E** - Open Equipment & Effects screen
 - **T** - Open travel map (from activity selection screen)
+- **ESC** - Close current modal
 - **X** - Reset game
+
+**Note**: On mobile, use the X button or tap outside modals instead of ESC
 
 ## Gameplay Flow
 

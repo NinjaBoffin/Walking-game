@@ -2,7 +2,36 @@
 
 ## Phase 2.75: Equipment & Consumables UI
 
-### v0.6.0 - Equipment & Consumable System (Current)
+### v0.6.1 - Mobile-Friendly Modal Navigation (Current)
+**Date**: November 13, 2025
+
+**Added:**
+- **X Close Button** - All modals now have a close button
+  - Red X button in top-right corner of every modal
+  - Hover effect (darker red when mouse over)
+  - Mobile-friendly tap target (24x24 pixels)
+  - Works on Help, Travel, Craft, Inventory, and Equipment modals
+- **Click Outside to Close** - Mobile gesture support
+  - Click/tap anywhere outside a modal to close it
+  - Prevents accidental modal closure (crafting progress modal can't be closed)
+  - Natural mobile UX pattern
+
+**Changed:**
+- **Button Layout** - 2x2 grid instead of 1x4
+  - Row 1: [Craft/Transform] [Inventory]
+  - Row 2: [Equipment] [Travel]
+  - All buttons now visible without scrolling
+  - Better fit for smaller screens
+
+**Technical:**
+- `currentModalBounds` - Tracks modal position/size for click detection
+- `closeCurrentModal()` - Centralized modal closing logic
+- `isClickOutsideModal(x, y)` - Detects clicks outside modal area
+- `love.mousepressed()` - Now checks for outside clicks before button handling
+
+---
+
+### v0.6.0 - Equipment & Consumable System
 **Date**: November 13, 2025
 
 **Added:**
