@@ -26,41 +26,67 @@ function ActionRunner.init()
 end
 
 -- Start a gather action (uses live steps)
-function ActionRunner.startGather(action, stepSystem)
+function ActionRunner.startGather(action, stepSystem, Equipment)
     if ActionRunner.currentState ~= ActionRunner.STATES.IDLE then
         return false, "Action already in progress"
+    end
+    
+    -- Calculate cost with equipment reduction
+    local baseCost = action.stepCost
+    local finalCost = baseCost
+    
+    if Equipment then
+        local reduction = Equipment.getCostReduction("gather")
+        finalCost = math.ceil(baseCost * (1 - reduction))
+        if reduction > 0 then
+            print(string.format("Equipment reduces cost by %d%% (%d → %d)", 
+                math.floor(reduction * 100), baseCost, finalCost))
+        end
     end
     
     ActionRunner.currentAction = action
     ActionRunner.currentState = ActionRunner.STATES.GATHER_ACTIVE
     ActionRunner.progress = 0
-    ActionRunner.requiredSteps = action.stepCost
+    ActionRunner.requiredSteps = finalCost
     ActionRunner.stepsAccumulated = 0
     
-    print(string.format("Started %s (requires %d live steps)", action.name, action.stepCost))
+    print(string.format("Started %s (requires %d live steps)", action.name, finalCost))
     return true
 end
 
 -- Start a spend action (uses banked steps, fallback to live)
-function ActionRunner.startSpend(action, stepSystem)
+function ActionRunner.startSpend(action, stepSystem, Equipment, actionType)
     if ActionRunner.currentState ~= ActionRunner.STATES.IDLE then
         return false, "Action already in progress"
     end
     
+    -- Calculate cost with equipment reduction
+    local baseCost = action.stepCost
+    local finalCost = baseCost
+    
+    if Equipment and actionType then
+        local reduction = Equipment.getCostReduction(actionType)
+        finalCost = math.ceil(baseCost * (1 - reduction))
+        if reduction > 0 then
+            print(string.format("Equipment reduces cost by %d%% (%d → %d)", 
+                math.floor(reduction * 100), baseCost, finalCost))
+        end
+    end
+    
     -- Check if we have enough steps
     local counts = stepSystem.getCounts()
-    if counts.bank + counts.live < action.stepCost then
+    if counts.bank + counts.live < finalCost then
         return false, string.format("Need %d steps, have %d banked + %d live", 
-            action.stepCost, counts.bank, counts.live)
+            finalCost, counts.bank, counts.live)
     end
     
     ActionRunner.currentAction = action
     ActionRunner.currentState = ActionRunner.STATES.SPEND_ACTIVE
     ActionRunner.progress = 0
-    ActionRunner.requiredSteps = action.stepCost
+    ActionRunner.requiredSteps = finalCost
     ActionRunner.stepsAccumulated = 0
     
-    print(string.format("Started %s (requires %d steps)", action.name, action.stepCost))
+    print(string.format("Started %s (requires %d steps)", action.name, finalCost))
     return true
 end
 

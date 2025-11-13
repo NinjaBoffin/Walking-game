@@ -4,12 +4,18 @@ A prototype of the Walking RPG game built with LÖVE framework, featuring a boxe
 
 ## Features Implemented
 
-- **Activity System** (NEW - v0.5.0): Mobile-first activity selection and management
+- **Equipment & Consumables** (NEW - v0.6.0): Full equipment management and item usage
+  - Equip items from inventory (Pendant, Bracelet, Wrap)
+  - Use consumables for temporary buffs (Tea, Potion, Snack)
+  - Equipment effects reduce action costs
+  - Active effects display shows buffs in real-time
+  - Duration/uses tracking for consumables
+- **Activity System** (v0.5.0): Mobile-first activity selection and management
   - Select activities based on current location
   - Set quantity targets for gathering
   - Progress tracking with auto-chaining
   - Cancel with step refund
-- **Mouse-Driven UI** (NEW - v0.5.0): Click-based interaction for mobile readiness
+- **Mouse-Driven UI** (v0.5.0): Click-based interaction for mobile readiness
   - Clickable buttons for all activities
   - Number pad for quantity input
   - Visual button hover states
@@ -22,10 +28,10 @@ A prototype of the Walking RPG game built with LÖVE framework, featuring a boxe
 - **Crafting System**: 
   - Consumables: Tea (cost reduction), Potion (craft queue), Snack (step refund)
   - Equipment: Pendant, Bracelet, Wrap with passive effects
-- **Equipment System**: 3 equipment slots + 2 consumable slots (1 Tea + 1 Potion)
+- **Equipment System**: 3 equipment slots + 2 consumable slots with real-time effects
 - **World Travel System**: 7 nodes across 3 regions with location-based gathering
 - **Progression System**: Milestone tracking for gathers, transforms, and crafts
-- **33-Slot Inventory**: Auto-merge stacks, overflow handling
+- **33-Slot Inventory**: Auto-merge stacks, overflow handling, Use/Equip buttons
 - **Action State Machine**: Proper idle → gather/spend → complete flow
 - **In-Game Help**: Toggle recipe guide showing all paths, transforms, item uses, and progression stats
 
@@ -44,6 +50,7 @@ A prototype of the Walking RPG game built with LÖVE framework, featuring a boxe
 ### Keyboard Shortcuts (Testing)
 - **SPACE** (hold) - Simulate step accumulation (for prototype testing)
 - **H** - Toggle Help/Recipes screen (includes progression stats)
+- **E** - Open Equipment & Effects screen
 - **T** - Open travel map (from activity selection screen)
 - **X** - Reset game
 
@@ -163,11 +170,66 @@ Walking Game/
 - Finite State Machine for action management
 - States: `idle` → `gather_active`/`spend_active` → `complete` → `idle`
 - Handles action progress, step consumption, and completion
+- Applies equipment cost reductions before starting actions
 - Key functions:
-  - `startGather(action, stepSystem)` - Start gather action (uses live steps)
-  - `startSpend(action, stepSystem)` - Start spend action (uses banked steps)
+  - `startGather(action, stepSystem, Equipment)` - Start gather action (uses live steps, applies reductions)
+  - `startSpend(action, stepSystem, Equipment, actionType)` - Start spend action (uses banked steps, applies reductions)
   - `update(dt, stepSystem)` - Update action progress, returns completed action
   - `isIdle()` - Check if no action is active
+
+**Equipment** (`equipment.lua`)
+- Manages 3 equipment slots (pendant, bracelet, wrap)
+- Tracks 2 active consumable slots (tea, potion)
+- Calculates cost reductions and bonuses from equipped items
+- Updates consumable durations/uses after actions
+- Key functions:
+  - `equip(slot, itemId, effect)` - Equip item to slot
+  - `unequip(slot)` - Remove item from slot
+  - `activateConsumable(type, itemId, effect)` - Activate tea/potion
+  - `useSnack(effect, stepSystem)` - Use instant-effect snack
+  - `getCostReduction(actionType)` - Calculate total cost reduction
+  - `updateConsumables(stepsSpent)` - Decrease tea duration
+  - `decrementPotionUses()` - Decrease potion uses
+
+**Crafting** (`crafting.lua`)
+- Defines recipes for consumables and equipment
+- Validates materials and performs crafting
+- Key recipe categories:
+  - Consumables: Tea (cost reduction buffs), Potion (craft queue), Snack (instant steps)
+  - Equipment: Pendant (craft reduction), Bracelet (gather reduction), Wrap (bonus chance)
+- Key functions:
+  - `canCraft(recipeId, inventory)` - Validate materials
+  - `performCraft(recipeId, inventory, stepSystem)` - Execute craft
+
+**ActivityManager** (`activity_manager.lua`)
+- Manages mobile-first activity selection and progress
+- States: `selection` → `configuring` → `active` → `selection`
+- Filters activities based on current location
+- Tracks quantity targets and progress
+- Key functions:
+  - `getAvailableActivities(World)` - Get location-based activities
+  - `startConfiguration(activityId)` - Begin activity setup
+  - `confirmActivity()` - Start active activity
+  - `updateProgress(itemsCollected, stepsUsed)` - Track activity progress
+  - `isActivityComplete()` - Check if target reached
+
+**World** (`world.lua`)
+- Defines world graph with 7 nodes across 3 regions
+- Manages current location and travel
+- Location-based gathering restrictions
+- Key data:
+  - Node definitions with connections, costs, gather paths
+  - Map positions for visual travel display
+- Key functions:
+  - `getCurrentNode()` - Get player's current location
+  - `getConnections()` - Get available travel destinations
+  - `isGatherPathAvailable(pathName)` - Check if path available at location
+  - `travel(nodeId)` - Move to new location
+
+**Progression** (`progression.lua`)
+- Tracks player milestones and statistics
+- Records gathers, transforms, crafts, steps spent
+- Provides summary data for progression display
 
 #### Gathering Paths (`src/paths/`)
 

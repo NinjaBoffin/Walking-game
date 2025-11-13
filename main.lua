@@ -20,6 +20,7 @@ local game = {
     showCraftMenu = false, -- Combined crafting & transforms modal
     showTravel = false,
     showInventory = false,
+    showEquipment = false, -- Equipment management modal
     craftMenuTab = "transforms", -- "transforms", "consumables", or "equipment"
     mouseX = 0,
     mouseY = 0,
@@ -174,7 +175,90 @@ function love.draw()
         drawCraftMenuModal()
     elseif game.showInventory then
         drawInventoryModal()
+    elseif game.showEquipment then
+        drawEquipmentModal()
     end
+end
+
+-- Draw active effects box (equipment + consumables)
+function drawActiveEffects(x, y, width)
+    local boxHeight = 20 -- Will expand based on content
+    local contentY = y
+    
+    -- Check if there are any active effects
+    local hasEffects = false
+    for _, item in pairs(Equipment.equipped) do
+        if item then hasEffects = true break end
+    end
+    if Equipment.activeConsumables.tea or Equipment.activeConsumables.potion then
+        hasEffects = true
+    end
+    
+    if not hasEffects then
+        return y -- No effects to show
+    end
+    
+    -- Draw box header
+    love.graphics.setColor(0.2, 0.4, 0.6)
+    love.graphics.rectangle("fill", x, y, width, 22)
+    love.graphics.setColor(0.4, 0.6, 0.8)
+    love.graphics.rectangle("line", x, y, width, 22)
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.print("Active Effects", x + 5, y + 5)
+    contentY = contentY + 24
+    
+    -- Count effects to calculate height
+    local effectCount = 0
+    
+    -- Show equipped items
+    for slot, item in pairs(Equipment.equipped) do
+        if item then
+            effectCount = effectCount + 1
+        end
+    end
+    
+    -- Show active consumables
+    if Equipment.activeConsumables.tea then effectCount = effectCount + 1 end
+    if Equipment.activeConsumables.potion then effectCount = effectCount + 1 end
+    
+    local effectBoxHeight = effectCount * 20 + 10
+    
+    -- Draw content box
+    love.graphics.setColor(0.15, 0.15, 0.15)
+    love.graphics.rectangle("fill", x, contentY, width, effectBoxHeight)
+    love.graphics.setColor(0.4, 0.4, 0.4)
+    love.graphics.rectangle("line", x, contentY, width, effectBoxHeight)
+    
+    contentY = contentY + 5
+    
+    -- List equipped items
+    for slot, item in pairs(Equipment.equipped) do
+        if item then
+            love.graphics.setColor(0.9, 0.9, 0.5)
+            love.graphics.print("• " .. item.itemId, x + 5, contentY)
+            love.graphics.setColor(1, 1, 1)
+            contentY = contentY + 20
+        end
+    end
+    
+    -- List active consumables
+    if Equipment.activeConsumables.tea then
+        local tea = Equipment.activeConsumables.tea
+        love.graphics.setColor(0.7, 1, 0.7)
+        love.graphics.print(string.format("• %s (%d steps)", tea.itemId, tea.stepsRemaining), x + 5, contentY)
+        love.graphics.setColor(1, 1, 1)
+        contentY = contentY + 20
+    end
+    
+    if Equipment.activeConsumables.potion then
+        local potion = Equipment.activeConsumables.potion
+        love.graphics.setColor(0.7, 1, 0.7)
+        love.graphics.print(string.format("• %s (%d uses)", potion.itemId, potion.usesRemaining), x + 5, contentY)
+        love.graphics.setColor(1, 1, 1)
+        contentY = contentY + 20
+    end
+    
+    return contentY
 end
 
 -- Draw activity selection screen
@@ -224,6 +308,9 @@ function drawActivitySelectionScreen()
         love.graphics.setColor(1, 1, 1)
     end
     
+    -- Active effects display
+    drawActiveEffects(screenW - 310, 10, 300)
+    
     -- Activity selection area
     y = headerHeight + 20
     drawBox(10, y, screenW-20, screenH-y-60, "Select Activity")
@@ -267,11 +354,11 @@ function drawActivitySelectionScreen()
         buttonY = buttonY + buttonHeight + 10
     end
     
-    -- Quick action buttons at bottom
+    -- Quick action buttons at bottom (2 rows for better fit)
     buttonY = screenH - 130
-    local quickButtonWidth = (screenW - 60) / 3 - 10
+    local quickButtonWidth = (screenW - 60) / 2 - 10  -- 2 columns instead of 4
     
-    -- Craft/Transform button
+    -- Row 1: Craft/Transform and Inventory
     local btnCraft = Button.create(
         "craft",
         buttonX,
@@ -287,7 +374,6 @@ function drawActivitySelectionScreen()
     Button.register(btnCraft)
     Button.draw(btnCraft)
     
-    -- Inventory button
     local btnInventory = Button.create(
         "inventory",
         buttonX + quickButtonWidth + 15,
@@ -300,10 +386,23 @@ function drawActivitySelectionScreen()
     Button.register(btnInventory)
     Button.draw(btnInventory)
     
-    -- Travel button
+    -- Row 2: Equipment and Travel
+    buttonY = buttonY + 60
+    local btnEquipment = Button.create(
+        "equipment",
+        buttonX,
+        buttonY,
+        quickButtonWidth,
+        50,
+        "Equipment",
+        function() game.showEquipment = true end
+    )
+    Button.register(btnEquipment)
+    Button.draw(btnEquipment)
+    
     local btnTravel = Button.create(
         "travel",
-        buttonX + (quickButtonWidth + 15) * 2,
+        buttonX + quickButtonWidth + 15,
         buttonY,
         quickButtonWidth,
         50,
@@ -445,7 +544,7 @@ function drawActivityConfigurationScreen()
                     local pathModule = pathModules[activity.path]
                     if pathModule then
                         local gatherAction = pathModule.getGatherAction()
-                        ActionRunner.startGather(gatherAction, StepSystem)
+                        ActionRunner.startGather(gatherAction, StepSystem, Equipment)
                     end
                 end
             else
@@ -486,6 +585,9 @@ function drawActiveActivityScreen()
     love.graphics.setColor(1, 1, 0.8)
     love.graphics.print("⚠ HOLD SPACEBAR to walk and accumulate steps!", 20, y)
     love.graphics.setColor(1, 1, 1)
+    
+    -- Active effects display
+    drawActiveEffects(screenW - 310, 10, 300)
     
     -- Progress area
     y = 150
@@ -1040,7 +1142,27 @@ function drawCraftingProgressModal()
     love.graphics.setColor(1, 1, 1)
 end
 
+-- Helper function to identify item type
+function getItemType(itemName)
+    -- Check if it's a consumable
+    for recipeId, recipe in pairs(Crafting.CONSUMABLE_RECIPES) do
+        if recipe.output.item == itemName then
+            return "consumable", recipe
+        end
+    end
+    
+    -- Check if it's equipment
+    for recipeId, recipe in pairs(Crafting.EQUIPMENT_RECIPES) do
+        if recipe.output.item == itemName then
+            return "equipment", recipe
+        end
+    end
+    
+    return "material", nil
+end
+
 function drawInventoryModal()
+    Button.clear()
     local modalW = 700
     local modalH = 550
     local modalX = (love.graphics.getWidth() - modalW) / 2
@@ -1067,12 +1189,11 @@ function drawInventoryModal()
     else
         for itemName, quantity in pairs(items) do
             -- Item box
-            local boxY = y
-            local boxH = 50
+            local boxH = 60
             local col = itemCount % 2
             local row = math.floor(itemCount / 2)
             local boxX = x + col * 330
-            boxY = y + row * 60
+            local boxY = y + row * 70
             
             love.graphics.setColor(0.25, 0.25, 0.25)
             love.graphics.rectangle("fill", boxX, boxY, 320, boxH)
@@ -1081,10 +1202,44 @@ function drawInventoryModal()
             
             -- Item name and quantity
             love.graphics.setColor(1, 1, 1)
-            love.graphics.print(itemName, boxX+10, boxY+10)
+            love.graphics.print(itemName, boxX+10, boxY+8)
             love.graphics.setColor(0.8, 1, 0.8)
-            love.graphics.print(string.format("x%d", quantity), boxX+10, boxY+28)
+            love.graphics.print(string.format("x%d", quantity), boxX+10, boxY+26)
             love.graphics.setColor(1, 1, 1)
+            
+            -- Check if this is a usable item
+            local itemType, recipe = getItemType(itemName)
+            if itemType == "consumable" then
+                -- Add "Use" button for consumables
+                local btnUse = Button.create(
+                    "use_" .. itemName,
+                    boxX + 200,
+                    boxY + 20,
+                    100,
+                    30,
+                    "Use",
+                    function() 
+                        useConsumable(itemName, recipe)
+                    end
+                )
+                Button.register(btnUse)
+                Button.draw(btnUse)
+            elseif itemType == "equipment" then
+                -- Add "Equip" button for equipment
+                local btnEquip = Button.create(
+                    "equip_" .. itemName,
+                    boxX + 200,
+                    boxY + 20,
+                    100,
+                    30,
+                    "Equip",
+                    function()
+                        equipItem(itemName, recipe)
+                    end
+                )
+                Button.register(btnEquip)
+                Button.draw(btnEquip)
+            end
             
             itemCount = itemCount + 1
         end
@@ -1093,7 +1248,207 @@ function drawInventoryModal()
     -- Instructions at bottom
     y = modalY + modalH - 30
     love.graphics.setColor(0.7, 0.7, 0.7)
-    love.graphics.print("Esc - Close", x, y)
+    love.graphics.print("Esc - Close  |  Click Use/Equip buttons to use items", x, y)
+    love.graphics.setColor(1, 1, 1)
+end
+
+-- Use a consumable item
+function useConsumable(itemName, recipe)
+    -- Remove item from inventory
+    local success = Inventory.removeItem(itemName, 1)
+    if not success then
+        print("Failed to remove item from inventory")
+        return
+    end
+    
+    -- Activate consumable based on type
+    if recipe.type == "tea" then
+        Equipment.activateConsumable("tea", itemName, recipe.effect)
+        print(string.format("Activated %s! %s", recipe.name, recipe.description))
+    elseif recipe.type == "potion" then
+        Equipment.activateConsumable("potion", itemName, recipe.effect)
+        print(string.format("Activated %s! %s", recipe.name, recipe.description))
+    elseif recipe.type == "snack" then
+        Equipment.useSnack(recipe.effect, StepSystem)
+        print(string.format("Used %s! %s", recipe.name, recipe.description))
+    end
+end
+
+-- Equip an equipment item
+function equipItem(itemName, recipe)
+    -- Get the slot type for this equipment
+    local slot = recipe.type -- "pendant", "bracelet", or "wrap"
+    
+    -- Check if slot already has equipment
+    local currentEquip = Equipment.equipped[slot]
+    if currentEquip then
+        -- Return old equipment to inventory
+        local returnSuccess = Inventory.addItem(currentEquip.itemId, 1)
+        if not returnSuccess then
+            print("Inventory full! Cannot unequip current item.")
+            return
+        end
+    end
+    
+    -- Remove new equipment from inventory
+    local success = Inventory.removeItem(itemName, 1)
+    if not success then
+        print("Failed to remove item from inventory")
+        return
+    end
+    
+    -- Equip the item
+    Equipment.equip(slot, itemName, recipe.effect)
+    print(string.format("Equipped %s to %s slot!", recipe.name, slot))
+end
+
+-- Draw equipment modal
+function drawEquipmentModal()
+    Button.clear()
+    local modalW = 600
+    local modalH = 500
+    local modalX = (love.graphics.getWidth() - modalW) / 2
+    local modalY = (love.graphics.getHeight() - modalH) / 2
+    
+    drawModal(modalX, modalY, modalW, modalH, "Equipment & Effects")
+    
+    local y = modalY + 45
+    local x = modalX + 15
+    
+    -- Equipment slots section
+    love.graphics.setColor(0.8, 0.9, 1)
+    love.graphics.print("EQUIPMENT SLOTS", x, y)
+    love.graphics.setColor(1, 1, 1)
+    y = y + 30
+    
+    local slots = {"pendant", "bracelet", "wrap"}
+    local slotNames = {pendant = "Pendant", bracelet = "Bracelet", wrap = "Wrap"}
+    
+    for _, slot in ipairs(slots) do
+        -- Slot box
+        local boxH = 70
+        love.graphics.setColor(0.25, 0.25, 0.25)
+        love.graphics.rectangle("fill", x, y, modalW - 30, boxH)
+        love.graphics.setColor(0.4, 0.4, 0.4)
+        love.graphics.rectangle("line", x, y, modalW - 30, boxH)
+        
+        -- Slot name
+        love.graphics.setColor(0.9, 0.9, 0.5)
+        love.graphics.print(slotNames[slot] .. ":", x + 10, y + 10)
+        love.graphics.setColor(1, 1, 1)
+        
+        local equippedItem = Equipment.equipped[slot]
+        if equippedItem then
+            -- Show equipped item
+            love.graphics.print(equippedItem.itemId, x + 10, y + 30)
+            
+            -- Show effect description
+            love.graphics.setColor(0.7, 1, 0.7)
+            local effectDesc = ""
+            if equippedItem.effect.type == "reduce_cost" then
+                effectDesc = string.format("-%d%% %s cost", 
+                    equippedItem.effect.amount * 100, 
+                    equippedItem.effect.target:gsub("_", " "))
+            elseif equippedItem.effect.type == "bonus_chance" then
+                effectDesc = string.format("+%d%% bonus %s", 
+                    equippedItem.effect.amount * 100, 
+                    equippedItem.effect.target:gsub("_", " "))
+            end
+            love.graphics.print(effectDesc, x + 10, y + 48)
+            love.graphics.setColor(1, 1, 1)
+            
+            -- Unequip button
+            local btnUnequip = Button.create(
+                "unequip_" .. slot,
+                x + modalW - 150,
+                y + 20,
+                100,
+                30,
+                "Unequip",
+                function()
+                    local item = Equipment.equipped[slot]
+                    if item then
+                        -- Return to inventory
+                        local success = Inventory.addItem(item.itemId, 1)
+                        if success then
+                            Equipment.unequip(slot)
+                            print("Unequipped " .. item.itemId)
+                        else
+                            print("Inventory full!")
+                        end
+                    end
+                end
+            )
+            Button.register(btnUnequip)
+            Button.draw(btnUnequip)
+        else
+            love.graphics.setColor(0.6, 0.6, 0.6)
+            love.graphics.print("(empty)", x + 10, y + 30)
+            love.graphics.setColor(1, 1, 1)
+        end
+        
+        y = y + boxH + 10
+    end
+    
+    y = y + 10
+    
+    -- Active consumables section
+    love.graphics.setColor(0.8, 0.9, 1)
+    love.graphics.print("ACTIVE CONSUMABLES", x, y)
+    love.graphics.setColor(1, 1, 1)
+    y = y + 30
+    
+    -- Tea slot
+    local boxH = 60
+    love.graphics.setColor(0.25, 0.25, 0.25)
+    love.graphics.rectangle("fill", x, y, modalW - 30, boxH)
+    love.graphics.setColor(0.4, 0.4, 0.4)
+    love.graphics.rectangle("line", x, y, modalW - 30, boxH)
+    
+    love.graphics.setColor(0.9, 0.9, 0.5)
+    love.graphics.print("Tea:", x + 10, y + 10)
+    love.graphics.setColor(1, 1, 1)
+    
+    if Equipment.activeConsumables.tea then
+        local tea = Equipment.activeConsumables.tea
+        love.graphics.print(tea.itemId, x + 10, y + 30)
+        love.graphics.setColor(0.7, 1, 0.7)
+        love.graphics.print(string.format("%d steps remaining", tea.stepsRemaining), x + 250, y + 30)
+        love.graphics.setColor(1, 1, 1)
+    else
+        love.graphics.setColor(0.6, 0.6, 0.6)
+        love.graphics.print("(no active tea)", x + 10, y + 30)
+        love.graphics.setColor(1, 1, 1)
+    end
+    
+    y = y + boxH + 10
+    
+    -- Potion slot
+    love.graphics.setColor(0.25, 0.25, 0.25)
+    love.graphics.rectangle("fill", x, y, modalW - 30, boxH)
+    love.graphics.setColor(0.4, 0.4, 0.4)
+    love.graphics.rectangle("line", x, y, modalW - 30, boxH)
+    
+    love.graphics.setColor(0.9, 0.9, 0.5)
+    love.graphics.print("Potion:", x + 10, y + 10)
+    love.graphics.setColor(1, 1, 1)
+    
+    if Equipment.activeConsumables.potion then
+        local potion = Equipment.activeConsumables.potion
+        love.graphics.print(potion.itemId, x + 10, y + 30)
+        love.graphics.setColor(0.7, 1, 0.7)
+        love.graphics.print(string.format("%d uses remaining", potion.usesRemaining), x + 250, y + 30)
+        love.graphics.setColor(1, 1, 1)
+    else
+        love.graphics.setColor(0.6, 0.6, 0.6)
+        love.graphics.print("(no active potion)", x + 10, y + 30)
+        love.graphics.setColor(1, 1, 1)
+    end
+    
+    -- Instructions at bottom
+    y = modalY + modalH - 30
+    love.graphics.setColor(0.7, 0.7, 0.7)
+    love.graphics.print("Esc - Close  |  Use consumables from Inventory", x, y)
     love.graphics.setColor(1, 1, 1)
 end
 
@@ -1540,9 +1895,22 @@ function love.keypressed(key)
         return
     end
     
+    if game.showEquipment then
+        if key == "escape" or key == "e" then
+            game.showEquipment = false
+        end
+        return
+    end
+    
     -- Toggle help
     if key == "h" then
         game.showHelp = true
+        return
+    end
+    
+    -- Toggle equipment (only from activity selection screen)
+    if key == "e" and ActivityManager.getState() == "selection" then
+        game.showEquipment = true
         return
     end
     
@@ -1658,7 +2026,7 @@ function startTransform(pathName, transformType)
     
     -- Schedule the actual transform to happen after the timer
     -- For now, we'll do it immediately but show the progress
-    local success, errorMsg = ActionRunner.startSpend(action, StepSystem)
+    local success, errorMsg = ActionRunner.startSpend(action, StepSystem, Equipment, "transform")
     if not success then
         print("Cannot start transform: " .. errorMsg)
         game.craftingInProgress = false
@@ -1715,7 +2083,13 @@ function startCrafting(recipeId)
     game.craftingTimer = 0
     
     -- Schedule the actual craft to happen after the timer
-    local success, errorMsg = ActionRunner.startSpend(action, StepSystem)
+    -- Determine action type based on recipe category
+    local actionType = "consumable_craft"
+    if Crafting.EQUIPMENT_RECIPES[recipeId] then
+        actionType = "equipment_craft"
+    end
+    
+    local success, errorMsg = ActionRunner.startSpend(action, StepSystem, Equipment, actionType)
     if not success then
         print("Cannot start crafting: " .. errorMsg)
         game.craftingInProgress = false
@@ -1729,6 +2103,9 @@ function handleActionComplete(completedAction)
     end
     
     if completedAction.type == "gather" then
+        -- Update consumables (tea duration)
+        Equipment.updateConsumables(completedAction.stepCost)
+        
         -- Add gather output to inventory
         for _, output in ipairs(completedAction.output) do
             Inventory.addItem(output.item, output.quantity)
@@ -1786,6 +2163,9 @@ function handleActionComplete(completedAction)
         end
         
     elseif completedAction.type == "craft" then
+        -- Update potion uses
+        Equipment.decrementPotionUses()
+        
         -- Perform craft (steps already spent in ActionRunner)
         local success, message = Crafting.performCraft(
             completedAction.recipeId,

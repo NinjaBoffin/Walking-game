@@ -118,6 +118,44 @@ Building a minimal playable prototype, then iteratively expanding to full MVP sc
 
 ---
 
+## Phase 2.75: Equipment & Consumables UI ✅ COMPLETED (Nov 13, 2025)
+
+**Goal**: Add UI for equipment management and consumable usage, completing the core gameplay loop  
+**Platform**: LÖVE (PC Desktop)  
+**Status**: ✅ Complete
+
+### Tasks
+- [x] Equipment management UI
+  - [x] Equipment modal showing 3 slots (pendant, bracelet, wrap)
+  - [x] Equip/unequip functionality from inventory
+  - [x] Swap equipment handling (auto-return to inventory)
+  - [x] Active effects display on main screens
+- [x] Consumable usage UI
+  - [x] "Use" buttons in inventory for consumables
+  - [x] Activate tea/potion effects
+  - [x] Instant use for snacks
+  - [x] Duration/uses tracking display
+- [x] Equipment effects integration
+  - [x] Apply cost reductions to actions
+  - [x] Update ActionRunner to use Equipment bonuses
+  - [x] Display reduced costs in UI
+  - [x] Update consumable durations after actions
+- [x] Visual feedback
+  - [x] Active Effects box on all main screens
+  - [x] Show equipped items and active consumables
+  - [x] Display remaining duration/uses
+  - [x] Equipment button on activity selection screen
+
+### Deliverables
+- [x] Updated inventory modal with Use/Equip buttons
+- [x] Equipment management modal
+- [x] Active effects display component
+- [x] Equipment cost reduction integration in ActionRunner
+- [x] Consumable duration/uses tracking
+- [x] Keyboard shortcut (E) for equipment modal
+
+---
+
 ## Phase 3: Mobile Integration
 
 **Goal**: Cross-platform mobile setup with real step counting  

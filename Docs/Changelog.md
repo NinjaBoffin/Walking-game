@@ -1,8 +1,79 @@
 # Walking RPG - Development Changelog
 
-## Phase 2.5: Activity System Refactor (IN PROGRESS)
+## Phase 2.75: Equipment & Consumables UI
 
-### v0.5.2 - Crafting Progress & Full Click Interface (Current)
+### v0.6.0 - Equipment & Consumable System (Current)
+**Date**: November 13, 2025
+
+**Added:**
+- **Equipment Management Modal** - Full equipment screen (Press E)
+  - 3 equipment slots: Pendant, Bracelet, Wrap
+  - Shows equipped items with effect descriptions
+  - Unequip button for each slot
+  - Active consumables section (Tea & Potion)
+  - Duration/uses remaining display
+- **Inventory Item Actions** - Use/Equip directly from inventory
+  - "Use" button on consumables (tea, potion, snack)
+  - "Equip" button on equipment items
+  - Auto-swap handling (returns old equipment to inventory)
+  - Instant activation for consumables
+- **Active Effects Display** - Visual feedback on all screens
+  - Shows on activity selection and active activity screens
+  - Lists all equipped items
+  - Displays active consumables with remaining duration/uses
+  - Compact box in upper-right corner
+- **Equipment Cost Reductions** - Effects actually work!
+  - Equipment reduces action costs (gather, transform, craft)
+  - ActionRunner applies reductions before starting actions
+  - Console shows reduction percentage
+  - Tea effects reduce gathering costs during duration
+  - Equipment pendant reduces equipment crafting costs
+- **Consumable Duration Tracking** - Effects expire properly
+  - Tea effects consume steps as actions complete
+  - Potion effects consume uses per craft
+  - Automatic expiration when duration/uses reach 0
+  - Console notifications when effects expire
+- **Equipment Button** - New quick access button on main screen
+  - 4 buttons now: [Craft/Transform] [Inventory] [Equipment] [Travel]
+  - Keyboard shortcut: E
+
+**Changed:**
+- **Inventory Modal** - Now includes Use/Equip buttons
+  - Item boxes are taller (60px) to fit buttons
+  - Uses `getItemType()` helper to identify consumables/equipment
+  - Materials show no button (cannot be used directly)
+- **Equipment Effects** - Integrated into gameplay
+  - Gather actions apply equipment cost reductions
+  - Transform actions apply equipment cost reductions
+  - Craft actions apply equipment cost reductions AND potion bonuses
+  - Tea duration decreases after each gather action
+  - Potion uses decrease after each craft action
+
+**Technical:**
+- `game.showEquipment` - Equipment modal state flag
+- `drawEquipmentModal()` - Equipment management UI
+- `drawActiveEffects(x, y, width)` - Reusable effects display component
+- `getItemType(itemName)` - Helper to identify item categories
+- `useConsumable(itemName, recipe)` - Activates consumables
+- `equipItem(itemName, recipe)` - Equips equipment with auto-swap
+- `ActionRunner.startGather()` - Now accepts Equipment param
+- `ActionRunner.startSpend()` - Now accepts Equipment and actionType params
+- `Equipment.updateConsumables(stepsSpent)` - Called after gather actions
+- `Equipment.decrementPotionUses()` - Called after craft actions
+- Cost reduction applied via `Equipment.getCostReduction(actionType)`
+
+**System Integration:**
+- Equipment effects are calculated in ActionRunner before action starts
+- Consumable durations update in `handleActionComplete()`
+- Active effects display updates in real-time
+- Inventory handles equipment swapping automatically
+- All modals respect modal priority (crafting progress > help > travel > craft > inventory > equipment)
+
+---
+
+## Phase 2.5: Activity System Refactor
+
+### v0.5.2 - Crafting Progress & Full Click Interface
 **Date**: November 10, 2025
 
 **Added:**
